@@ -8,3 +8,9 @@ php:
   - '7.1'
   - hhvm
   - nightly
+
+install:
+  - composer update
+
+script:
+  - phpunit
