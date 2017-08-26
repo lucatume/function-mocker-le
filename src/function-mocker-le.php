@@ -8,6 +8,12 @@ $__fmle_callbacks = [];
 
 function define( $function, $callback ) {
 	global $__fmle_callbacks;
+	
+	if(!isset($__fmle_callbacks[$function]) && function_exists($function)){
+		$message = "Function {$function} has been defined before Function Mocker LE did its first redefinition attempt.";
+		$message .= "\nIf you need to redefine an existing function use the Function Mocker library (lucatume/function-mocker)."
+		throw new RunTimeException($message);
+	}
 
 	$__fmle_callbacks[ $function ] = $callback;
 
