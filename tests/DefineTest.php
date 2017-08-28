@@ -11,11 +11,11 @@ class DefineTest extends TestCase {
 	 * @test
 	 */
 	public function should_allow_defining_a_non_existing_function() {
-		define( 'foo', function () {
+		define('foo', function () {
 			return 'bar';
-		} );
+		});
 
-		$this->assertEquals( 'bar', foo() );
+		$this->assertEquals('bar', foo());
 	}
 
 	/**
@@ -24,11 +24,11 @@ class DefineTest extends TestCase {
 	 * @test
 	 */
 	public function should_allow_defining_a_non_existing_namespaced_function() {
-		define( '\some\bar\foo', function () {
+		define('\some\bar\foo', function () {
 			return 'bar';
-		} );
+		});
 
-		$this->assertEquals( 'bar', \some\bar\foo() );
+		$this->assertEquals('bar', \some\bar\foo());
 	}
 
 	/**
@@ -37,23 +37,23 @@ class DefineTest extends TestCase {
 	 * @test
 	 */
 	public function should_allow_redefining_an_already_defined_function_more_than_once() {
-		define( 'f1', function () {
+		define('f1', function () {
 			return 'one';
-		} );
+		});
 
-		$this->assertEquals( 'one', f1() );
+		$this->assertEquals('one', f1());
 
-		define( 'f1', function () {
+		define('f1', function () {
 			return 'two';
-		} );
+		});
 
-		$this->assertEquals( 'two', f1() );
+		$this->assertEquals('two', f1());
 
-		define( 'f1', function () {
+		define('f1', function () {
 			return 'three';
-		} );
+		});
 
-		$this->assertEquals( 'three', f1() );
+		$this->assertEquals('three', f1());
 	}
 
 	/**
@@ -62,14 +62,14 @@ class DefineTest extends TestCase {
 	 * @test
 	 */
 	public function should_allow_using_a_defined_function_to_define_a_function() {
-		define( 'f234', function () {
+		define('f234', function () {
 			return 'foo';
-		} );
-		define( 'f567', function () {
+		});
+		define('f567', function () {
 			return f234() . 'bar';
-		} );
+		});
 
-		$this->assertEquals( 'foobar', f567() );
+		$this->assertEquals('foobar', f567());
 	}
 
 	/**
@@ -78,13 +78,28 @@ class DefineTest extends TestCase {
 	 * @test
 	 */
 	public function should_pass_the_function_call_arguments_to_the_callback() {
-		define( 'add', function ( $p1, $p2 ) {
+		define('add', function ($p1, $p2) {
 			return $p1 + $p2;
-		} );
+		});
 
-		$this->assertEquals( 2, add( 1, 1 ) );
-		$this->assertEquals( 5, add( 3, 2 ) );
-		$this->assertEquals( 5, add( 10, - 5 ) );
-		$this->assertEquals( 7, add( 10, - 3 ) );
+		$this->assertEquals(2, add(1, 1));
+		$this->assertEquals(5, add(3, 2));
+		$this->assertEquals(5, add(10, -5));
+		$this->assertEquals(7, add(10, -3));
+	}
+
+	/**
+	 * It should throw if trying to define a function not defined by the library
+	 *
+	 * @test
+	 */
+	public function should_throw_if_trying_to_define_a_function_not_defined_by_the_library() {
+		eval('function foobar(){};');
+
+		$this->expectException(RuntimeException::class);
+
+		define('foobar', function () {
+			return 2389;
+		});
 	}
 }
