@@ -17,7 +17,7 @@ class MyOrmTest extends TestCase {
 
 	public function test_query_parameters_are_preserved(){
 		// define a non existing function
-		define('get_post', function(array $args){
+		define('get_posts', function(array $args){
 			Assert::assertEquals(['post_type' => 'book','paginated' => 2, 'posts_per_page' => 6], $args);
 			
 			return [];
