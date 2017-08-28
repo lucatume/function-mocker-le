@@ -158,4 +158,13 @@ public function test_prophecy(){
 }
 ```
 
-Where [function-mocker](https://github.com/lucatume/function-mocker) tries to provide a feature-reach solution to the problem of mocking functions (and more); this project tries to provide just a basic starting point with no opinionated choices about its usage.
+Where [function-mocker](https://github.com/lucatume/function-mocker) tries to provide a feature-reach solution to the problem of mocking functions (and more); this project tries to provide just a basic starting point with no opinionated choices about its usage.  
+The other functions provided by the libary are just sugar wrappers around the `define` core; see the example and the `/tests` folder for clarity.
+
+## Tests
+To run the tests install the composer dependencies and run PHPUnit:
+
+```bash
+composer install
+vendor/bin/phpunit
+```
