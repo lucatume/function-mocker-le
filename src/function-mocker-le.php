@@ -10,6 +10,16 @@ class Functions {
 	 *            format.
 	 */
 	public static $defined = [];
+
+	public static function undefined($function) {
+		return function () use ($function) {
+			throw new UndefinedFunctionException("Function '{$function}' was created by Function Mocker LE but is now undefined.");
+		};
+	}
+}
+
+class UndefinedFunctionException extends \Exception {
+
 }
 
 /**
@@ -92,4 +102,34 @@ function defineWithValueMap(array $map) {
  */
 function randomName() {
 	return 'function_' . md5(uniqid('function', true));
+}
+
+/**
+ * Undefines a function defined by Function Mocker LE.
+ *
+ * Undefined functions will throw an UndefinedFunctionException when called.
+ *
+ * @param string $function
+ */
+function undefine($function) {
+	Functions::$defined[$function] = Functions::undefined($function);
+}
+
+/**
+ * Bulk undefines all functions defined by Function Mocker LE or a group of functions.
+ *
+ * Undefined functions will throw an UndefinedFunctionException when called.
+ *
+ * @param array|null $functions
+ */
+function undefineAll(array $functions = null) {
+	if (null === $functions) {
+		undefineAll(array_keys(Functions::$defined));
+
+		return;
+	}
+
+	foreach ($functions as $function) {
+		undefine($function);
+	}
 }

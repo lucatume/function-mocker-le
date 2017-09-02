@@ -12,9 +12,10 @@ use function tad\FunctionMockerLe\define;
 use function tad\FunctionMockerLe\defineWithMap;
 use function tad\FunctionMockerLe\defineWithValueMap;
 use function tad\FunctionMockerLe\defineAll;
+use function tad\FunctionMockerLe\undefineAll;
 
 class MyOrmTest extends TestCase {
-
+		
 	public function test_query_parameters_are_preserved(){
 		// define a non existing function
 		define('get_posts', function(array $args){
@@ -99,6 +100,12 @@ class MyOrmTest extends TestCase {
 		
 		$orm->query()->fetch();
 	}
+	
+	public function tearDown()
+    {
+    	// undefine all the functions after each test to avoid test dependencies
+    	undefineAll();
+	}
 }
 ```
 
@@ -159,7 +166,8 @@ public function test_prophecy(){
 ```
 
 Where [function-mocker](https://github.com/lucatume/function-mocker) tries to provide a feature-reach solution to the problem of mocking functions (and more); this project tries to provide just a basic starting point with no opinionated choices about its usage.  
-The other functions provided by the libary are just sugar wrappers around the `define` core; see the example and the `/tests` folder for clarity.
+The other functions provided by the libary are just sugar wrappers around the `define` core; see the example and the `/tests` folder for clarity.  
+The `undefine($function)` and `undefineAll()` methods will "undefine" functions managed by the Function Mocker LE library; in this context "undefine" means that calling the undefined function will trhow an `tad\FunctionMockerLe\UndefinedFunctionException`.
 
 ## Tests
 To run the tests install the composer dependencies and run PHPUnit:
