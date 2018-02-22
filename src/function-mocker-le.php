@@ -1,63 +1,6 @@
 <?php
 
 namespace tad\FunctionMockerLe;
-
-/**
- * Interface System
- *
- * The interface representing a system to be setup.
- *
- * @package tad\FunctionMockerLe
- */
-interface System {
-
-	/**
-	 * Returns the system slug.
-	 *
-	 * @return string
-	 */
-	public function name();
-
-	/**
-	 * Defines, using function-mocker-le API, the functions to define.
-	 *
-	 * @return void
-	 */
-	public function setUp();
-
-	/**
-	 * Tears down the definitions made by the system in the setup phase.
-	 *
-	 * @return void
-	 */
-	public function tearDown();
-}
-
-class Functions {
-
-	/**
-	 * @var array Stores the callbacks assigned to each function defined by the
-	 *            `define` function in an associative array with the [<function name> => <callback>]
-	 *            format.
-	 */
-	public static $defined = [];
-
-	/**
-	 * @var \tad\FunctionMockerLe\System[] Stores the set up systems in a [<name> => <system-instance>] array.
-	 */
-	public static $systems = [];
-
-	public static function undefined($function) {
-		return function () use ($function) {
-			throw new UndefinedFunctionException("Function '{$function}' was created by Function Mocker LE but is now undefined.");
-		};
-	}
-}
-
-class UndefinedFunctionException extends \Exception {
-
-}
-
 /**
  * Defines a non defined function, or redefines one defined by this class, to return the value of a callback.
  *
@@ -65,13 +8,13 @@ class UndefinedFunctionException extends \Exception {
  * @param callable $callback A callable closure, class/instance and method couple or function name.
  */
 function define($function, $callback) {
-	if (!isset(Functions::$defined[$function]) && function_exists($function)) {
+	if (!isset(Store::$defined[$function]) && function_exists($function)) {
 		$message = "Function {$function} has been defined before Function Mocker LE did its first redefinition attempt.";
 		$message .= "\nIf you need to redefine (monkey patch) an existing function use the Function Mocker library (lucatume/function-mocker).";
 		throw new \RunTimeException($message);
 	}
 
-	Functions::$defined[$function] = $callback;
+	Store::$defined[$function] = $callback;
 
 	$function       = array_filter(explode('\\', $function));
 	$namespaceFrags = array_splice($function, 0, count($function) - 1);
@@ -86,7 +29,7 @@ function define($function, $callback) {
 	$code = <<< PHP
 {$namespace}
 function {$function}(){
-	\$f = \\tad\\FunctionMockerLE\\Functions::\$defined['{$function}'];
+	\$f = \\tad\\FunctionMockerLE\\Store::\$defined['{$function}'];
 	
 	return call_user_func_array(\$f, func_get_args());
 }
@@ -148,7 +91,7 @@ function randomName() {
  * @param string $function
  */
 function undefine($function) {
-	Functions::$defined[$function] = Functions::undefined($function);
+	Store::$defined[$function] = Store::undefined($function);
 }
 
 /**
@@ -160,14 +103,14 @@ function undefine($function) {
  * @param array|null $functions
  */
 function undefineAll(array $functions = null) {
-	foreach (Functions::$systems as $name => $system) {
+	foreach (Store::$systems as $name => $system) {
 		$system->tearDown();
 	}
 
-	Functions::$systems = [];
+	Store::$systems = [];
 
 	if (null === $functions) {
-		undefineAll(array_keys(Functions::$defined));
+		undefineAll(array_keys(Store::$defined));
 
 		return;
 	}
@@ -183,7 +126,7 @@ function undefineAll(array $functions = null) {
  * @param \tad\FunctionMockerLe\System $system
  */
 function setupSystem(System $system) {
-	Functions::$systems[$system->name()] = $system;
+	Store::$systems[$system->name()] = $system;
 	$system->setUp();
 }
 
@@ -193,9 +136,9 @@ function setupSystem(System $system) {
  * @param string $systemName The name of a system set up using hte `setupSystem` function.
  */
 function tearDownSystem($systemName) {
-	if (!array_key_exists($systemName, Functions::$systems)) {
+	if (!array_key_exists($systemName, Store::$systems)) {
 		throw new \InvalidArgumentException("No system {$systemName} was ever set up.");
 	}
 
-	Functions::$systems[$systemName]->tearDown();
+	Store::$systems[$systemName]->tearDown();
 }
