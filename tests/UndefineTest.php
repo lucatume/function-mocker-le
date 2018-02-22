@@ -1,6 +1,7 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
+use tad\FunctionMockerLe\Store;
 use tad\FunctionMockerLe\UndefinedFunctionException;
 use function tad\FunctionMockerLe\defineWithMap;
 use function tad\FunctionMockerLe\randomName;
@@ -9,7 +10,11 @@ use function tad\FunctionMockerLe\undefineAll;
 
 class UndefineTest extends TestCase {
 
-	/**
+  protected function setUp() {
+    Store::$systems = [];
+  }
+
+  /**
 	 * It should allow undefining a FMLE defined function
 	 *
 	 * @test

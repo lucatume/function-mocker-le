@@ -1,4 +1,5 @@
 <?php
+
 namespace tad\FunctionMockerLe;
 
 /**
@@ -20,9 +21,13 @@ interface System {
 	/**
 	 * Defines, using function-mocker-le API, the functions to define.
 	 *
+	 * @param null $arg1 One or more additional parameters passed by the `setupSystem` function
+	 *
 	 * @return void
+	 *
+	 * @see \tad\FunctionMockerLe\setupSystem()
 	 */
-	public function setUp();
+	public function setUp($arg1 = null);
 
 	/**
 	 * Tears down the definitions made by the system in the setup phase.

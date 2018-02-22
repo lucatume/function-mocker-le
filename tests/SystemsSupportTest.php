@@ -83,4 +83,17 @@ class SystemsSupportTest extends TestCase {
 
 		undefineAll();
 	}
+
+	/**
+	 * It should call the setUp method on the system with additional parameters
+	 *
+	 * @test
+	 */
+	public function should_call_the_set_up_method_on_the_system_with_additional_parameters() {
+		$system = $this->prophesize(System::class);
+		$system->name()->willReturn('systemWithArgs');
+		$system->setUp('one', 'bar', 'baz')->shouldBeCalled();
+
+		setupSystem($system->reveal(), 'one', 'bar', 'baz');
+	}
 }
