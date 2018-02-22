@@ -2,6 +2,37 @@
 
 namespace tad\FunctionMockerLe;
 
+/**
+ * Interface System
+ *
+ * The interface representing a system to be setup.
+ *
+ * @package tad\FunctionMockerLe
+ */
+interface System {
+
+	/**
+	 * Returns the system slug.
+	 *
+	 * @return string
+	 */
+	public function name();
+
+	/**
+	 * Defines, using function-mocker-le API, the functions to define.
+	 *
+	 * @return void
+	 */
+	public function setUp();
+
+	/**
+	 * Tears down the definitions made by the system in the setup phase.
+	 *
+	 * @return void
+	 */
+	public function tearDown();
+}
+
 class Functions {
 
 	/**
@@ -10,6 +41,11 @@ class Functions {
 	 *            format.
 	 */
 	public static $defined = [];
+
+	/**
+	 * @var \tad\FunctionMockerLe\System[] Stores the set up systems in a [<name> => <system-instance>] array.
+	 */
+	public static $systems = [];
 
 	public static function undefined($function) {
 		return function () use ($function) {
@@ -118,11 +154,18 @@ function undefine($function) {
 /**
  * Bulk undefines all functions defined by Function Mocker LE or a group of functions.
  *
- * Undefined functions will throw an UndefinedFunctionException when called.
+ * Undefined functions will throw an UndefinedFunctionException when called; the method will
+ * tear down all the systems too.
  *
  * @param array|null $functions
  */
 function undefineAll(array $functions = null) {
+	foreach (Functions::$systems as $name => $system) {
+		$system->tearDown();
+	}
+
+	Functions::$systems = [];
+
 	if (null === $functions) {
 		undefineAll(array_keys(Functions::$defined));
 
@@ -132,4 +175,27 @@ function undefineAll(array $functions = null) {
 	foreach ($functions as $function) {
 		undefine($function);
 	}
+}
+
+/**
+ * Sets up a system calling its `setUp` method.
+ *
+ * @param \tad\FunctionMockerLe\System $system
+ */
+function setupSystem(System $system) {
+	Functions::$systems[$system->name()] = $system;
+	$system->setUp();
+}
+
+/**
+ * Calls a specific system `tearDown` method.
+ *
+ * @param string $systemName The name of a system set up using hte `setupSystem` function.
+ */
+function tearDownSystem($systemName) {
+	if (!array_key_exists($systemName, Functions::$systems)) {
+		throw new \InvalidArgumentException("No system {$systemName} was ever set up.");
+	}
+
+	Functions::$systems[$systemName]->tearDown();
 }
