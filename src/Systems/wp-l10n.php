@@ -5,105 +5,106 @@
 
 //translate
 if (!function_exists('translate')) {
-  function translate($string) {
+  \tad\FunctionMockerLe\define('translate', function ($string) {
     return $string;
-  }
+  });
 }
 
 if (!function_exists('translate_with_gettext_context')) {
-  function translate_with_gettext_context($text) {
+  \tad\FunctionMockerLe\define('translate_with_gettext_context', function ($text) {
     return $text;
-  }
+  });
 }
 
 if (!function_exists('__')) {
-  function __($string) {
+  \tad\FunctionMockerLe\define('__', function ($string) {
     return $string;
-  }
+  });
+
 }
 
 if (!function_exists('esc_attr__')) {
-  function esc_attr__($string) {
+  \tad\FunctionMockerLe\define('esc_attr__', function ($string) {
     return htmlentities($string);
-  }
+  });
 }
 
 if (!function_exists('esc_html__')) {
-  function esc_html__($string) {
+  \tad\FunctionMockerLe\define('esc_html__', function ($string) {
     return htmlentities($string);
-  }
+  });
 }
 
 if (!function_exists('_e')) {
-  function _e($string) {
+  \tad\FunctionMockerLe\define('_e', function ($string) {
     echo $string;
-  }
+  });
 }
 
 if (!function_exists('esc_attr_e')) {
-  function esc_attr_e($string) {
+  \tad\FunctionMockerLe\define('esc_attr_e', function ($string) {
     echo $string;
-  }
+  });
 }
 
 if (!function_exists('esc_html_e')) {
-  function esc_html_e($string) {
+  \tad\FunctionMockerLe\define('esc_html_e', function ($string) {
     echo $string;
-  }
+  });
 }
 
 if (!function_exists('_x')) {
-  function _x($string) {
+  \tad\FunctionMockerLe\define('_x', function ($string) {
     return $string;
-  }
+  });
 }
 
 if (!function_exists('_ex')) {
-  function _ex($string) {
+  \tad\FunctionMockerLe\define('_ex', function ($string) {
     echo $string;
-  }
+  });
 }
 
 if (!function_exists('esc_attr_x')) {
-  function esc_attr_x($string) {
+  \tad\FunctionMockerLe\define('esc_attr_x', function ($string) {
     return $string;
-  }
+  });
 }
 
 if (!function_exists('esc_html_x')) {
-  function esc_html_x($string) {
+  \tad\FunctionMockerLe\define('esc_html_x', function ($string) {
     return $string;
-  }
+  });
 }
 
 if (!function_exists('_n')) {
-  function _n($single, $plural, $number) {
+  \tad\FunctionMockerLe\define('_n', function ($single, $plural, $number) {
     return $number == 1 ? $single : $plural;
-  }
+  });
 }
 
 if (!function_exists('_nx')) {
-  function _nx($single, $plural, $number) {
+  \tad\FunctionMockerLe\define('_nx', function ($single, $plural, $number) {
     return $number == 1 ? $single : $plural;
-  }
+  });
 }
 
 if (!function_exists('_n_noop')) {
-  function _n_noop($singular, $plural, $domain = NULL) {
-    return [0 => $singular, 1 => $plural, 'singular' => $singular, 'plural' => $plural, 'context' => NULL, 'domain' => $domain];
-  }
+  \tad\FunctionMockerLe\define('_n_noop', function ($singular, $plural, $domain = null) {
+    return [0 => $singular, 1 => $plural, 'singular' => $singular, 'plural' => $plural, 'context' => null, 'domain' => $domain];
+  });
 }
 
 if (!function_exists('_nx_noop')) {
-  function _nx_noop($singular, $plural, $context, $domain = NULL) {
+  \tad\FunctionMockerLe\define('_nx_noop', function ($singular, $plural, $context, $domain = null) {
     return [0 => $singular, 1 => $plural, 2 => $context, 'singular' => $singular, 'plural' => $plural, 'context' => $context, 'domain' => $domain];
-  }
+  });
 }
 
 if (!function_exists('translate_nooped_plural')) {
-  function translate_nooped_plural($nooped_plural, $count, $domain = 'default') {
+  \tad\FunctionMockerLe\define('translate_nooped_plural', function ($nooped_plural, $count, $domain = 'default') {
     return $count > 1 ? $nooped_plural['plural'] : $nooped_plural['singular'];
-  }
+  });
 }
 
 return [
