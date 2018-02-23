@@ -11,29 +11,36 @@ namespace tad\FunctionMockerLe;
  */
 interface System {
 
-	/**
-	 * Returns the system slug.
-	 *
-	 * @return string
-	 */
-	public function name();
+  /**
+   * Returns the system slug.
+   *
+   * @return string
+   */
+  public function name();
 
-	/**
-	 * Defines, using function-mocker-le API, the functions to define.
-	 *
-	 * @param null $arg1 One or more additional parameters passed by the `setupSystem` function
-	 *
-	 * @return void
-	 *
-	 * @see \tad\FunctionMockerLe\setupSystem()
-	 */
-	public function setUp($arg1 = null);
+  /**
+   * Returns a list of the functions defined by the System.
+   *
+   * @return array
+   */
+  public function defined();
 
-	/**
-	 * Tears down the definitions made by the system in the setup phase.
-	 *
-	 * @return void
-	 */
-	public function tearDown();
+  /**
+   * Defines, using function-mocker-le API, the functions to define.
+   *
+   * @param null $arg1 One or more additional parameters passed by the `setupSystem` function
+   *
+   * @return void
+   *
+   * @see \tad\FunctionMockerLe\setupSystem()
+   */
+  public function setUp(...$args);
+
+  /**
+   * Tears down the definitions made by the system in the setup phase.
+   *
+   * @return void
+   */
+  public function tearDown();
 }
 
