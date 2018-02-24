@@ -1,0 +1,16 @@
+<?php
+#!/usr/bin/env php
+if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+  require __DIR__ . '/../vendor/autoload.php';
+} else {
+  // Composer installation inside vendor/bin
+  require __DIR__ . '/../autoload.php';
+}
+
+use Symfony\Component\Console\Application;
+
+$application = new Application();
+
+$application->add(new tad\FunctionMockerLe\Command\GenerateSystem());
+
+$application->run();

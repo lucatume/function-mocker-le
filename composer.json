@@ -21,6 +21,11 @@
     ]
   },
   "require": {
-    "php": ">=5.4"
-  }
+    "php": ">=5.4",
+    "symfony/console": "^3.4",
+    "nikic/php-parser": "^3.1"
+  },
+  "bin": [
+    "bin/fmle"
+  ]
 }
