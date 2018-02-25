@@ -8,11 +8,6 @@ use tad\FunctionMockerLe\System;
 class WordPress implements System {
 
   /**
-   * @var array
-   */
-  protected $defined = [];
-
-  /**
    * Returns the system slug.
    *
    * @return string
@@ -38,7 +33,7 @@ class WordPress implements System {
    * @return void
    */
   public function tearDown() {
-    \tad\FunctionMockerLe\undefineAll($this->defined);
+    \tad\FunctionMockerLe\undefineAll($this->defined());
   }
 
   /**

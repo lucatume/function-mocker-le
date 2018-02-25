@@ -2,17 +2,24 @@
 
 namespace tad\FunctionMockerLe\Command;
 
-
+use PhpParser\Builder\Class_;
+use PhpParser\Builder\Namespace_;
+use PhpParser\BuilderFactory;
 use PhpParser\Node\Arg;
+use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\BooleanNot;
+use PhpParser\Node\Expr\Cast\Object_;
 use PhpParser\Node\Expr\Closure;
 use PhpParser\Node\Expr\FuncCall;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
+use PhpParser\Node\Param;
 use PhpParser\Node\Scalar;
 use PhpParser\Node\Scalar\String_;
-use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\If_;
+use PhpParser\Node\Stmt\Interface_;
 use PhpParser\Node\Stmt\Return_;
 use PhpParser\NodeAbstract;
 use PhpParser\ParserFactory;
@@ -22,135 +29,189 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use tad\FunctionMockerLe\System;
 
 class GenerateSystem extends Command {
+    const NAME = 'system:generate';
+    protected $defined =[];
 
-  const NAME = 'system:generate';
-
-  protected function configure() {
-    $this->setName(self::NAME)
-      ->setDescription('Scaffolds a System from source files')
-      ->setHelp('This command will parse a specified folder, or file, and generate a System defining the functions found in the source.')
-      ->addArgument('source', InputArgument::REQUIRED, 'The source file or folder path, relative to the current working directory.')
-      ->addArgument('system', InputArgument::REQUIRED, 'The name, including namespace, of the System class to generate')
-      ->addOption('system-path', 'sp', InputOption::VALUE_OPTIONAL, 'The path to the folder that will contain the System file; if the destination does not exist it will be created.', getcwd());
-  }
-
-  protected function execute(InputInterface $input, OutputInterface $output) {
-    $source = $input->getArgument('source');
-
-    $this->checkSource($source);
-
-    $functionsAsts = $this->getSourceAsts($source);
-
-    $this->printSystem($input->getArgument('system'), $input->getArgument('system-path'), $functionsAsts);
-
-    return 0;
-  }
-
-  /**
-   * @param $source
-   */
-  protected function checkSource($source) {
-    if (!file_exists($source)) {
-      throw new \InvalidArgumentException("Source file or folder {$source} does not exist");
+    protected function configure() {
+        $this->setName(self::NAME)
+            ->setDescription('Scaffolds a System from source files')
+            ->setHelp('This command will parse a specified folder, or file, and generate a System defining the functions found in the source.')
+            ->addArgument('source', InputArgument::REQUIRED, 'The source file or folder path, relative to the current working directory.')
+            ->addArgument('system', InputArgument::REQUIRED, 'The name, including namespace, of the System class to generate')
+            ->addOption('system-path', 'sp', InputOption::VALUE_OPTIONAL, 'The path to the folder that will contain the System file; if the destination does not exist it will be created.', getcwd());
+        // @todo output format argument
+        // @todo compress output to use defineAll
     }
 
-    if (!is_readable($source)) {
-      throw new \InvalidArgumentException("Source file or folder {$source} is not readable");
-    }
-  }
+    protected function execute(InputInterface $input, OutputInterface $output) {
+        $source = $input->getArgument('source');
 
-  protected function getSourceAsts($source) {
-    if (!is_dir($source)) {
-      return $this->getFileFunctionsAsts(realpath($source));
+        $this->checkSource($source);
+
+        $functionsAsts = $this->getSourceAsts($source);
+
+        $this->printSystem($input->getArgument('system'), $input->getOption('system-path'), array_values($functionsAsts));
+
+        return 0;
     }
 
-    $files = [];
-    $dirs = [$source];
-    while (null !== ($dir = array_pop($dirs))) {
-      if ($dh = opendir($dir)) {
-        while (false !== ($file = readdir($dh))) {
-          if ($file == '.' || $file == '..') {
-            continue;
-          }
-          $path = $dir . '/' . $file;
-          if (is_dir($path)) {
-            $dirs[] = $path;
-          } else {
-            $files[] = $path;
-          }
+    /**
+     * @param $source
+     */
+    protected function checkSource($source) {
+        if (!file_exists($source)) {
+            throw new \InvalidArgumentException("Source file or folder {$source} does not exist");
         }
-        closedir($dh);
-      }
+
+        if (!is_readable($source)) {
+            throw new \InvalidArgumentException("Source file or folder {$source} is not readable");
+        }
     }
 
-    $asts = array_map(function ($file) {
-      return $this->getFileFunctionsAsts($file);
-    }, $files);
+    protected function getSourceAsts($source) {
+        if (!is_dir($source)) {
+            return $this->getFileFunctionsAsts(realpath($source));
+        }
 
-    return array_merge(...$asts);
-  }
+        $files = [];
+        $dirs = [$source];
+        while (null !== ($dir = array_pop($dirs))) {
+            if ($dh = opendir($dir)) {
+                while (false !== ($file = readdir($dh))) {
+                    if ($file == '.' || $file == '..') {
+                        continue;
+                    }
+                    $path = $dir . '/' . $file;
+                    if (is_dir($path)) {
+                        $dirs[] = $path;
+                    } else {
+                        $files[] = $path;
+                    }
+                }
+                closedir($dh);
+            }
+        }
 
-  /**
-   * @param $file
-   */
-  protected function getFileFunctionsAsts($file) {
-    $parser = (new ParserFactory())->create(ParserFactory::PREFER_PHP5);
-    try {
-      $asts = $parser->parse(file_get_contents($file));
-    } catch (\Exception $e) {
-      throw new \RuntimeException("Could not parse file {$file} -- {$e->getMessage()}");
+        $asts = array_map(function ($file) {
+            return $this->getFileFunctionsAsts($file);
+        }, $files);
+
+        return array_merge(...$asts);
     }
 
-    $asts = $this->removeClasses($asts);
-    $asts = $this->removeNonFunctions($asts);
+    /**
+     * @param $file
+     */
+    protected function getFileFunctionsAsts($file) {
+        $parser = (new ParserFactory())->create(ParserFactory::PREFER_PHP5);
+        try {
+            $asts = $parser->parse(file_get_contents($file));
+        } catch (\Exception $e) {
+            throw new \RuntimeException("Could not parse file {$file} -- {$e->getMessage()}");
+        }
 
-    return $this->wrapInFunctionExistsCheck($asts);
-  }
+        $asts = $this->removeClasses($asts);
+        $asts = $this->removeNonFunctions($asts);
+        $this->setDefinedFunctions($asts);
 
-  /**
-   * @param $ast
-   *
-   * @return array
-   */
-  protected function removeClasses(array $ast) {
-    return array_filter($ast, function (NodeAbstract $stmt) {
-      return !$stmt instanceof Class_;
-    });
-  }
+        return $this->wrapInFunctionExistsCheck($asts);
+    }
 
-  protected function removeNonFunctions(array $ast) {
-    return array_filter($ast, function (NodeAbstract $stmt) {
-      return $stmt instanceof Function_;
-    });
-  }
+    /**
+     * @param $ast
+     *
+     * @return array
+     */
+    protected function removeClasses(array $ast) {
+        return array_filter($ast, function (NodeAbstract $stmt) {
+            return !$stmt instanceof Class_;
+        });
+    }
 
-  /**
-   * @param $asts
-   *
-   * @return array
-   */
-  protected function wrapInFunctionExistsCheck($asts) {
-    return array_map(function (Function_ $functionNode) {
-      return new If_(new BooleanNot(new FuncCall(new Name('function_exists'), [new Arg(new Scalar\String_($functionNode->name))])), [
-        'stmts' => [
-          new FuncCall(new Name('\tad\FunctionMockerLe\define'), [
-            new String_($functionNode->name),
-            new Closure([
-              'params' => $functionNode->params,
-              'stmts'  => [
-                new Return_(),
-              ],
-            ]),
-          ]),
-        ],
-      ]);
-    }, $asts);
-  }
+    protected function removeNonFunctions(array $ast) {
+        return array_filter($ast, function (NodeAbstract $stmt) {
+            return $stmt instanceof Function_;
+        });
+    }
 
-  protected function printSystem($system, $systemPath, array $functionsAsts) {
-    $printer = new PrettyPrinter();
-    echo $printer->prettyPrintFile(array_values($functionsAsts));
-  }
+    /**
+     * @param $asts
+     *
+     * @return array
+     */
+    protected function wrapInFunctionExistsCheck($asts) {
+        return array_map(function (Function_ $functionNode) {
+            return new If_(new BooleanNot(new FuncCall(new Name('function_exists'), [new Arg(new Scalar\String_($functionNode->name))])), [
+                'stmts' => [
+                    new FuncCall(new Name('\tad\FunctionMockerLe\define'), [
+                        new String_($functionNode->name),
+                        new Closure([
+                            'params' => $functionNode->params,
+                            'stmts' => [
+                                new Return_(),
+                            ],
+                        ]),
+                    ]),
+                ],
+            ]);
+        }, $asts);
+    }
+
+    protected function printSystem($system, $systemPath, array $functionsAsts) {
+        $systemClassFrags = explode('\\', $system);
+        $systemClass = array_pop($systemClassFrags);
+        $asts = [];
+        $builder = new BuilderFactory();
+        $classStmt = $builder->class($systemClass)->implement(System::class)
+            ->addStmt($builder->method('name')
+                ->makePublic()
+                ->addStmt(new Return_(new String_($systemClass)))
+            )
+            ->addStmt($builder->method('setUp')
+                ->makePublic()
+                ->addParam(new Param('args',null,null,false,true))
+                ->addStmts($functionsAsts)
+            )
+            ->addStmt(
+                $builder->method('tearDown')
+                    ->makePublic()
+                   ->addStmt(
+                       new FuncCall(
+                       new Name('\\tad\\FunctionMockerLe\\undefineAll'),
+                       [new MethodCall(new Variable('this'),new Name('defined'))]
+                       )
+                   )
+            )
+            ->addStmt(
+               $builder->method('defined')
+                ->makePublic()
+                ->addStmt(
+                    new Return_(new Array_($this->defined))
+                )
+            );
+
+        if (count($systemClassFrags)) {
+            $asts[] = $builder->namespace(implode('\\',$systemClassFrags))
+                ->addStmt($classStmt)
+                ->getNode();
+        } else {
+            $asts[] = $classStmt->getNode();
+        }
+
+        $printer = new PrettyPrinter();
+//        echo $printer->prettyPrintFile($functionsAsts);
+        echo $printer->prettyPrintFile($asts);
+    }
+
+    /**
+     * @param $asts
+     */
+    protected function setDefinedFunctions($asts) {
+        $this->defined = array_map(function (Function_ $fun) {
+            return new String_($fun->name);
+        }, $asts);
+    }
 }
