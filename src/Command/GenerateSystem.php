@@ -30,6 +30,14 @@ use Symfony\Component\Console\Output\Output;
 use Symfony\Component\Console\Output\OutputInterface;
 use tad\FunctionMockerLe\System;
 
+/**
+ * Class GenerateSystem
+ *
+ * Implements the command to generate a class implementing tad\FucntionMockerLe\System from a source file
+ * or files.
+ *
+ * @package tad\FunctionMockerLe\Command
+ */
 class GenerateSystem extends Command {
     const NAME = 'system:generate';
     protected $defined = [];
@@ -44,6 +52,9 @@ class GenerateSystem extends Command {
      */
     protected $output;
 
+    /**
+     * Configures the command.
+     */
     protected function configure() {
         $this->setName(self::NAME)
             ->setDescription('Scaffolds a System from source files')
@@ -54,6 +65,14 @@ class GenerateSystem extends Command {
         // @todo compress output to use defineAll
     }
 
+    /**
+     * Executes the command.
+     *
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     *
+     * @return int|null
+     */
     protected function execute(InputInterface $input, OutputInterface $output) {
         $this->input = $input;
         $this->output = $output;
@@ -71,13 +90,13 @@ class GenerateSystem extends Command {
 
         $this->output->writeln("<comment>Found {$count} function(s)</comment>");
 
-        $this->printSystem($input->getArgument('system'), $input->getOption('system-path'), array_values($functionsAsts));
-
-        return 0;
+        return $this->printSystem($input->getArgument('system'), $input->getOption('system-path'), array_values($functionsAsts));
     }
 
     /**
-     * @param $source
+     * Checks that the specified source is valid, be it a file or a folder.
+     *
+     * @param string $source
      */
     protected function checkSource($source) {
         if (!file_exists($source)) {
@@ -89,6 +108,12 @@ class GenerateSystem extends Command {
         }
     }
 
+    /**
+     * Parses the specified source(s) to fetch all the functions defined in the file(s).
+     *
+     * @param string $source
+     * @return array
+     */
     protected function getSourceAsts($source) {
         if (!is_dir($source)) {
             return $this->getFileFunctionsAsts(realpath($source));
@@ -123,6 +148,12 @@ class GenerateSystem extends Command {
         return $merged;
     }
 
+    /**
+     * Parses the specified source file to fetch all the functions defined in the file.
+     *
+     * @param string $file
+     * @return array
+     */
     protected function getFileFunctionsAsts($file) {
         $parser = (new ParserFactory())->create(ParserFactory::PREFER_PHP5);
         try {
@@ -139,7 +170,9 @@ class GenerateSystem extends Command {
     }
 
     /**
-     * @param $ast
+     * Removes any class statement from the list of statements.
+     *
+     * @param array $ast
      *
      * @return array
      */
@@ -149,6 +182,13 @@ class GenerateSystem extends Command {
         });
     }
 
+    /**
+     * Removes any non-function statement from the list of statements.
+     *
+     * @param array $ast
+     *
+     * @return array
+     */
     protected function removeNonFunctions(array $ast) {
         return array_filter($ast, function (NodeAbstract $stmt) {
             return $stmt instanceof Function_;
@@ -156,7 +196,10 @@ class GenerateSystem extends Command {
     }
 
     /**
-     * @param $asts
+     * Parses the list of functions found in the source to set what will be returned
+     * by the generated class `defined` method.
+     *
+     * @param array $asts
      */
     protected function setDefinedFunctions($asts) {
         $this->defined = array_merge($this->defined, array_map(function (Function_ $fun) {
@@ -165,7 +208,9 @@ class GenerateSystem extends Command {
     }
 
     /**
-     * @param $asts
+     * Wraps all the functions statements found in the source in `if(function_exists...` checks.
+     *
+     * @param array $asts
      *
      * @return array
      */
@@ -187,8 +232,17 @@ class GenerateSystem extends Command {
         }, $asts);
     }
 
-    protected function printSystem($system, $systemPath, array $functionsAsts) {
-        $systemClassFrags = explode('\\', $system);
+    /**
+     * Prints the class PHP code to file.
+     *
+     * @param string $systemName
+     * @param string $systemPath
+     * @param array $functionsAsts
+     *
+     * @return int
+     */
+    protected function printSystem($systemName, $systemPath, array $functionsAsts) {
+        $systemClassFrags = explode('\\', $systemName);
         $systemClass = array_pop($systemClassFrags);
         $asts = [];
         $builder = new BuilderFactory();
