@@ -63,13 +63,13 @@ class GenerateSystem extends Command {
         $this->checkSource($source);
 
         $src = $this->input->getArgument('source');
-        $this->output->writeln("<comment>Reading functions from {$src}</comment>");
+        $this->output->writeln("<comment>Reading functions from {$src}...</comment>");
 
         $functionsAsts = $this->getSourceAsts($source);
 
         $count = count($this->defined);
 
-        $this->output->writeln("<comment>Found {$count} functions</comment>");
+        $this->output->writeln("<comment>Found {$count} function(s)</comment>");
 
         $this->printSystem($input->getArgument('system'), $input->getOption('system-path'), array_values($functionsAsts));
 
@@ -117,12 +117,12 @@ class GenerateSystem extends Command {
             return $this->getFileFunctionsAsts($file);
         }, $files);
 
-        return array_merge(...$asts);
+        $merged = array_merge(...$asts);
+
+        $this->definedCount = count($merged);
+        return $merged;
     }
 
-    /**
-     * @param $file
-     */
     protected function getFileFunctionsAsts($file) {
         $parser = (new ParserFactory())->create(ParserFactory::PREFER_PHP5);
         try {
@@ -159,9 +159,9 @@ class GenerateSystem extends Command {
      * @param $asts
      */
     protected function setDefinedFunctions($asts) {
-        $this->defined = array_map(function (Function_ $fun) {
+        $this->defined = array_merge($this->defined, array_map(function (Function_ $fun) {
             return new String_($fun->name);
-        }, $asts);
+        }, $asts));
     }
 
     /**
