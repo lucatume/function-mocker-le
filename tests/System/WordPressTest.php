@@ -25,11 +25,7 @@ class WordPressTest extends TestCase {
    * @test
    */
   public function should_define_all_the_defined_functions() {
-    $wp = new WordPress();
-
-    $wp->setUp();
-
-    foreach ($wp->defined() as $f) {
+    foreach ($this->sut->defined() as $f) {
       $this->assertTrue(function_exists($f));
     }
   }
@@ -38,7 +34,6 @@ class WordPressTest extends TestCase {
    * Test add_action
    */
   public function test_add_action() {
-    $this->sut->setUp();
     $total = 0;
 
     $callback = function (...$ns) use (&$total) {
@@ -94,8 +89,6 @@ class WordPressTest extends TestCase {
    * Test add_filter
    */
   public function test_add_filter() {
-    $this->sut->setUp();
-
     $callback = function (...$ns) {
       Assert::assertTrue(doing_filter());
       Assert::assertTrue(doing_filter('foo-filter'));
@@ -174,5 +167,7 @@ class WordPressTest extends TestCase {
 
   protected function setUp() {
     $this->sut = new WordPress();
+    $this->sut->setUnsafe(true);
+    $this->sut->setUp();
   }
 }

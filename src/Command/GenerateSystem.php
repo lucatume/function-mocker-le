@@ -53,17 +53,18 @@ class GenerateSystem extends Command {
     protected $output;
 
     /**
-     * Configures the command.
+     * @var
      */
-    protected function configure() {
-        $this->setName(self::NAME)
-            ->setDescription('Scaffolds a System from source files')
-            ->setHelp('This command will parse a specified folder, or file, and generate a System defining the functions found in the source.')
-            ->addArgument('source', InputArgument::REQUIRED, 'The source file or folder path, relative to the current working directory.')
-            ->addArgument('system', InputArgument::REQUIRED, 'The name, including namespace, of the System class to generate')
-            ->addOption('system-path', 'sp', InputOption::VALUE_OPTIONAL, 'The path to the folder that will contain the System file; if the destination does not exist it will be created.', getcwd());
-        // @todo compress output to use defineAll
-    }
+    protected $config = [
+        'include-paths' => [],
+        'exclude-paths' => [],
+        'exclude-functions' => []
+    ];
+
+    /**
+     * @var bool
+     */
+    protected $hasConfig = false;
 
     /**
      * Executes the command.
@@ -73,7 +74,7 @@ class GenerateSystem extends Command {
      *
      * @return int|null
      */
-    protected function execute(InputInterface $input, OutputInterface $output) {
+    public function execute(InputInterface $input, OutputInterface $output) {
         $this->input = $input;
         $this->output = $output;
 
@@ -81,8 +82,9 @@ class GenerateSystem extends Command {
 
         $this->checkSource($source);
 
-        $src = $this->input->getArgument('source');
-        $this->output->writeln("<comment>Reading functions from {$src}...</comment>");
+        $this->parseConfiguration($input->getOption('config-file'));
+
+        $this->output->writeln("<comment>Reading functions from {$source}...</comment>");
 
         $functionsAsts = $this->getSourceAsts($source);
 
@@ -90,22 +92,48 @@ class GenerateSystem extends Command {
 
         $this->output->writeln("<comment>Found {$count} function(s)</comment>");
 
+        if ($this->input->getOption('generate-headers-file')) {
+            $this->printSystemHeaders($input->getArgument('system'), $input->getOption('system-path'), array_values($functionsAsts));
+        }
+
         return $this->printSystem($input->getArgument('system'), $input->getOption('system-path'), array_values($functionsAsts));
+
     }
 
     /**
      * Checks that the specified source is valid, be it a file or a folder.
      *
      * @param string $source
+     * @param string $type
      */
-    protected function checkSource($source) {
+    protected function checkSource($source, $type = 'Source') {
         if (!file_exists($source)) {
-            throw new \InvalidArgumentException("Source file or folder {$source} does not exist");
+            throw new \InvalidArgumentException("{$type} file or folder {$source} does not exist");
         }
 
         if (!is_readable($source)) {
-            throw new \InvalidArgumentException("Source file or folder {$source} is not readable");
+            throw new \InvalidArgumentException("{$type} file or folder {$source} is not readable");
         }
+    }
+
+    /**
+     * Parses the specified configuration file.
+     *
+     * @param string $configFile
+     */
+    protected function parseConfiguration($configFile) {
+        if (empty($configFile)) {
+            $this->output->writeln('<comment>No file configuration provided.</comment>');
+
+            return;
+        }
+
+        $this->checkSource($configFile, 'Configuration');
+
+        $this->output->writeln("<comment>Reading configuration from {$configFile}...</comment>");
+
+        $this->config = array_merge(json_decode(file_get_contents($configFile)));
+        $this->hasConfig = true;
     }
 
     /**
@@ -116,6 +144,9 @@ class GenerateSystem extends Command {
      */
     protected function getSourceAsts($source) {
         if (!is_dir($source)) {
+            if ($this->hasConfig) {
+                $this->output->writeln('<comment>Since the source is a file the configuration `include-paths`and `exclude-paths` parameters will be ignored.</comment>');
+            }
             return $this->getFileFunctionsAsts(realpath($source));
         }
 
@@ -137,6 +168,8 @@ class GenerateSystem extends Command {
                 closedir($dh);
             }
         }
+
+        $files = $this->filterIncludedExcludedFiles($files);
 
         $asts = array_map(function ($file) {
             return $this->getFileFunctionsAsts($file);
@@ -164,6 +197,8 @@ class GenerateSystem extends Command {
 
         $asts = $this->removeClasses($asts);
         $asts = $this->removeNonFunctions($asts);
+        $asts = $this->removeExcludedFunctions($asts);
+
         $this->setDefinedFunctions($asts);
 
         return $this->wrapInFunctionExistsCheck($asts);
@@ -172,12 +207,12 @@ class GenerateSystem extends Command {
     /**
      * Removes any class statement from the list of statements.
      *
-     * @param array $ast
+     * @param array $asts
      *
      * @return array
      */
-    protected function removeClasses(array $ast) {
-        return array_filter($ast, function (NodeAbstract $stmt) {
+    protected function removeClasses(array $asts) {
+        return array_filter($asts, function (NodeAbstract $stmt) {
             return !$stmt instanceof Class_;
         });
     }
@@ -185,13 +220,27 @@ class GenerateSystem extends Command {
     /**
      * Removes any non-function statement from the list of statements.
      *
-     * @param array $ast
+     * @param array $asts
      *
      * @return array
      */
-    protected function removeNonFunctions(array $ast) {
-        return array_filter($ast, function (NodeAbstract $stmt) {
+    protected function removeNonFunctions(array $asts) {
+        return array_filter($asts, function (NodeAbstract $stmt) {
             return $stmt instanceof Function_;
+        });
+    }
+
+    /**
+     * Removes the functions excluded in the configuration file from the list of
+     * functions.
+     *
+     * @param array $asts
+     *
+     * @return array
+     */
+    protected function removeExcludedFunctions(array $asts) {
+        return array_filter($asts, function (NodeAbstract $stmt) {
+            return !in_array($stmt->name, $this->config['exclude-functions'], true);
         });
     }
 
@@ -233,6 +282,41 @@ class GenerateSystem extends Command {
     }
 
     /**
+     * @param $files
+     */
+    protected function filterIncludedExcludedFiles($files) {
+        $excludedPaths = $this->normalizePaths($this->config['exclude-paths']);
+        $includedPaths = $this->normalizePaths($this->config['include-paths']);
+
+        $afterExclusion = array_filter($files, function ($file) use ($excludedPaths, $includedPaths) {
+            $isUnderIncludedPath = count(array_filter($includedPaths, function ($inc) use ($file) {
+                return 0 !== strpos($file, $inc);
+            }));
+
+            if ($isUnderIncludedPath) {
+                return true;
+            }
+
+            $isUnderExcludedPath = count(array_filter($excludedPaths, function ($ex) use ($file) {
+                return 0 !== strpos($file, $ex);
+            }));
+
+            return !$isUnderExcludedPath;
+        });
+    }
+
+    /**
+     * @param $excludedPaths
+     * @return array
+     */
+    protected function normalizePaths($excludedPaths) {
+        $excludedPaths = array_unique(array_merge($excludedPaths), array_map(function ($ex) {
+            return realpath($ex);
+        }, $excludedPaths));
+        return $excludedPaths;
+    }
+
+    /**
      * Prints the class PHP code to file.
      *
      * @param string $systemName
@@ -244,7 +328,11 @@ class GenerateSystem extends Command {
     protected function printSystem($systemName, $systemPath, array $functionsAsts) {
         $systemClassFrags = explode('\\', $systemName);
         $systemClass = array_pop($systemClassFrags);
+        $outputFilePath = rtrim($systemPath, DIRECTORY_SEPARATOR) . "/{$systemClass}.php";
+        $realpath = realpath($outputFilePath) ?: $outputFilePath;
+
         $asts = [];
+
         $builder = new BuilderFactory();
         $date = date('Y-m-d H:i:s');
         $classStmt = $builder->class($systemClass)->implement('\\' . System::class)
@@ -276,28 +364,58 @@ class GenerateSystem extends Command {
                     )
             );
 
-        if (count($systemClassFrags)) {
-            $asts[] = $builder->namespace(implode('\\', $systemClassFrags))
+        $systemNamespace = $this->getSystemNamespace($systemName);
+
+        if (!empty($systemNamespace)) {
+            $asts[] = $builder->namespace($systemNamespace)
                 ->addStmt($classStmt)
                 ->getNode();
         } else {
             $asts[] = $classStmt->getNode();
         }
 
-        $outputFilePath = rtrim($systemPath, DIRECTORY_SEPARATOR) . "/{$systemClass}.php";
         $output = (new PrettyPrinter())->prettyPrintFile($asts);
+        $this->output->writeln("<comment>Writing to file {$realpath}</comment>");
 
-        $this->output->writeln("<comment>Writing to file {$outputFilePath}</comment>");
+        if (!is_dir(dirname($realpath)) && !mkdir(dirname($realpath), 0777, true) && !is_dir(dirname($realpath))) {
+            throw new \RuntimeException(sprintf('Directory "%s" could not be created', dirname($realpath)));
+        }
 
-        $put = file_put_contents($outputFilePath, $output, LOCK_EX);
+        $put = file_put_contents($realpath, $output, LOCK_EX);
 
         if ($put) {
-            $this->output->writeln("<info>Done! Check out the {$outputFilePath} file.</info>");
+            $this->output->writeln("<info>Done! Check out the {$realpath} file.</info>");
             return 0;
         }
 
-        $this->output->writeln("<error>Could not write to {$outputFilePath}...</error>");
+        $this->output->writeln("<error>Could not write to {$realpath}...</error>");
 
         return 1;
+    }
+
+    /**
+     * Configures the command.
+     */
+    protected function configure() {
+        $this->setName(self::NAME)
+            ->setDescription('Scaffolds a System from source files')
+            ->setHelp('This command will parse a specified folder, or file, and generate a System defining the functions found in the source.')
+            ->addArgument('source', InputArgument::REQUIRED, 'The source file or folder path, relative to the current working directory.')
+            ->addArgument('system', InputArgument::REQUIRED, 'The name, including namespace, of the System class to generate')
+            ->addOption('system-path', 'sp', InputOption::VALUE_OPTIONAL, 'The path to the folder that will contain the System file; if the destination does not exist it will be created.', getcwd())
+            ->addOption('config-file', 'c', InputOption::VALUE_OPTIONAL, 'The path to a generation configuration file')
+            ->addOption('generate-headers-file', 'gh', InputOption::VALUE_OPTIONAL, 'Generate an headers file for the system class');
+    }
+
+    protected function printSystemHeaders($systemName, $systemPath, array $functionsAsts) {
+    }
+
+    /**
+     * @param $systemClassFrags
+     * @return string
+     */
+    protected function getSystemNamespace($systemName) {
+        $systemClassFrags = explode('\\', $systemName);
+        return implode('\\', $systemClassFrags);
     }
 }
