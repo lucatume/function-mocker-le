@@ -2,19 +2,21 @@
 
 namespace tad\FunctionMockerLe\Command;
 
-use PhpParser\Builder\Class_;
 use PhpParser\BuilderFactory;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\Array_;
+use PhpParser\Node\Expr\BinaryOp\Concat;
 use PhpParser\Node\Expr\BooleanNot;
 use PhpParser\Node\Expr\Closure;
 use PhpParser\Node\Expr\FuncCall;
+use PhpParser\Node\Expr\Include_;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
 use PhpParser\Node\Param;
 use PhpParser\Node\Scalar;
 use PhpParser\Node\Scalar\String_;
+use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\If_;
 use PhpParser\Node\Stmt\Return_;
@@ -39,383 +41,420 @@ use tad\FunctionMockerLe\System;
  * @package tad\FunctionMockerLe\Command
  */
 class GenerateSystem extends Command {
-    const NAME = 'system:generate';
-    protected $defined = [];
 
-    /**
-     * @var Input
-     */
-    protected $input;
+	const NAME = 'system:generate';
 
-    /**
-     * @var Output
-     */
-    protected $output;
+	protected $defined = [];
 
-    /**
-     * @var
-     */
-    protected $config = [
-        'include-paths' => [],
-        'exclude-paths' => [],
-        'exclude-functions' => []
-    ];
+	/**
+	 * @var Input
+	 */
+	protected $input;
 
-    /**
-     * @var bool
-     */
-    protected $hasConfig = false;
+	/**
+	 * @var Output
+	 */
+	protected $output;
 
-    /**
-     * Executes the command.
-     *
-     * @param InputInterface $input
-     * @param OutputInterface $output
-     *
-     * @return int|null
-     */
-    public function execute(InputInterface $input, OutputInterface $output) {
-        $this->input = $input;
-        $this->output = $output;
+	/**
+	 * @var
+	 */
+	protected $config = [
+		'include-paths'     => [],
+		'exclude-paths'     => [],
+		'exclude-functions' => [],
+	];
 
-        $source = $input->getArgument('source');
+	/**
+	 * @var bool
+	 */
+	protected $hasConfig = false;
 
-        $this->checkSource($source);
+	/**
+	 * Executes the command.
+	 *
+	 * @param InputInterface  $input
+	 * @param OutputInterface $output
+	 *
+	 * @return int|null
+	 */
+	public function execute( InputInterface $input, OutputInterface $output ) {
+		$this->input  = $input;
+		$this->output = $output;
 
-        $this->parseConfiguration($input->getOption('config-file'));
+		$source = $input->getArgument( 'source' );
+		$this->checkSource( $source );
+		$this->parseConfiguration( $input->getOption( 'config-file' ) );
 
-        $this->output->writeln("<comment>Reading functions from {$source}...</comment>");
+		$this->output->writeln( "<comment>Reading functions from {$source}...</comment>" );
 
-        $functionsAsts = $this->getSourceAsts($source);
+		$functionsAsts = $this->getSourceAsts( $source );
+		$count         = count( $this->defined );
 
-        $count = count($this->defined);
+		$this->output->writeln( "<comment>Found {$count} function(s)</comment>" );
 
-        $this->output->writeln("<comment>Found {$count} function(s)</comment>");
+		return $this->printSystem( $input->getArgument( 'system' ), $input->getOption( 'system-path' ), array_values( $functionsAsts ) );
+	}
 
-        if ($this->input->getOption('generate-headers-file')) {
-            $this->printSystemHeaders($input->getArgument('system'), $input->getOption('system-path'), array_values($functionsAsts));
-        }
+	/**
+	 * Checks that the specified source is valid, be it a file or a folder.
+	 *
+	 * @param string $source
+	 * @param string $type
+	 */
+	protected function checkSource( $source, $type = 'Source' ) {
+		if ( ! file_exists( $source ) ) {
+			throw new \InvalidArgumentException( "{$type} file or folder {$source} does not exist" );
+		}
 
-        return $this->printSystem($input->getArgument('system'), $input->getOption('system-path'), array_values($functionsAsts));
+		if ( ! is_readable( $source ) ) {
+			throw new \InvalidArgumentException( "{$type} file or folder {$source} is not readable" );
+		}
+	}
 
-    }
+	/**
+	 * Parses the specified configuration file.
+	 *
+	 * @param string $configFile
+	 */
+	protected function parseConfiguration( $configFile ) {
+		if ( empty( $configFile ) ) {
+			$this->output->writeln( '<comment>No file configuration provided.</comment>' );
 
-    /**
-     * Checks that the specified source is valid, be it a file or a folder.
-     *
-     * @param string $source
-     * @param string $type
-     */
-    protected function checkSource($source, $type = 'Source') {
-        if (!file_exists($source)) {
-            throw new \InvalidArgumentException("{$type} file or folder {$source} does not exist");
-        }
+			return;
+		}
 
-        if (!is_readable($source)) {
-            throw new \InvalidArgumentException("{$type} file or folder {$source} is not readable");
-        }
-    }
+		$this->checkSource( $configFile, 'Configuration' );
 
-    /**
-     * Parses the specified configuration file.
-     *
-     * @param string $configFile
-     */
-    protected function parseConfiguration($configFile) {
-        if (empty($configFile)) {
-            $this->output->writeln('<comment>No file configuration provided.</comment>');
+		$this->output->writeln( "<comment>Reading configuration from {$configFile}...</comment>" );
 
-            return;
-        }
+		$this->config    = array_merge( json_decode( file_get_contents( $configFile ) ) );
+		$this->hasConfig = true;
+	}
 
-        $this->checkSource($configFile, 'Configuration');
+	/**
+	 * Parses the specified source(s) to fetch all the functions defined in the file(s).
+	 *
+	 * @param string $source
+	 *
+	 * @return array
+	 */
+	protected function getSourceAsts( $source ) {
+		if ( ! is_dir( $source ) ) {
+			return $this->getSourceAstsFromSingleFile( $source );
+		}
 
-        $this->output->writeln("<comment>Reading configuration from {$configFile}...</comment>");
+		return $this->getSourceAstsFromFolder( $source );
+	}
 
-        $this->config = array_merge(json_decode(file_get_contents($configFile)));
-        $this->hasConfig = true;
-    }
+	/**
+	 * @param $source
+	 *
+	 * @return array
+	 */
+	protected function getSourceAstsFromSingleFile( $source ) {
+		if ( $this->hasConfig ) {
+			$this->output->writeln( '<comment>Since the source is a file the configuration `include-paths`and `exclude-paths` parameters will be ignored.</comment>' );
+		}
 
-    /**
-     * Parses the specified source(s) to fetch all the functions defined in the file(s).
-     *
-     * @param string $source
-     * @return array
-     */
-    protected function getSourceAsts($source) {
-        if (!is_dir($source)) {
-            if ($this->hasConfig) {
-                $this->output->writeln('<comment>Since the source is a file the configuration `include-paths`and `exclude-paths` parameters will be ignored.</comment>');
-            }
-            return $this->getFileFunctionsAsts(realpath($source));
-        }
+		return $this->getFileFunctionsAsts( realpath( $source ) );
+	}
 
-        $files = [];
-        $dirs = [$source];
-        while (null !== ($dir = array_pop($dirs))) {
-            if ($dh = opendir($dir)) {
-                while (false !== ($file = readdir($dh))) {
-                    if ($file == '.' || $file == '..') {
-                        continue;
-                    }
-                    $path = $dir . '/' . $file;
-                    if (is_dir($path)) {
-                        $dirs[] = $path;
-                    } else {
-                        $files[] = $path;
-                    }
-                }
-                closedir($dh);
-            }
-        }
+	/**
+	 * Parses the specified source file to fetch all the functions defined in the file.
+	 *
+	 * @param string $file
+	 *
+	 * @return array
+	 */
+	protected function getFileFunctionsAsts( $file ) {
+		$parser = ( new ParserFactory() )->create( ParserFactory::PREFER_PHP5 );
+		try {
+			$asts = $parser->parse( file_get_contents( $file ) );
+		} catch ( \Exception $e ) {
+			throw new \RuntimeException( "Could not parse file {$file} -- {$e->getMessage()}" );
+		}
 
-        $files = $this->filterIncludedExcludedFiles($files);
+		$asts = $this->removeClasses( $asts );
+		$asts = $this->removeNonFunctions( $asts );
+		$asts = $this->removeExcludedFunctions( $asts );
 
-        $asts = array_map(function ($file) {
-            return $this->getFileFunctionsAsts($file);
-        }, $files);
+		$this->setDefinedFunctions( $asts );
 
-        $merged = array_merge(...$asts);
+		$asts = array_map( function ( Function_ $function ) {
+			$function->stmts = [
+				new Return_( new FuncCall( new Name( '\\tad\\FunctionMockerLe\\callback' ), [
+					new Concat( new Concat( new Scalar\MagicConst\Namespace_(), new String_( '\\' ) ), new Scalar\MagicConst\Function_() ),
+					new FuncCall( new Name( 'func_get_args' ) ),
+				] ) ),
+			];
 
-        $this->definedCount = count($merged);
-        return $merged;
-    }
+			return $function;
+		}, $asts );
 
-    /**
-     * Parses the specified source file to fetch all the functions defined in the file.
-     *
-     * @param string $file
-     * @return array
-     */
-    protected function getFileFunctionsAsts($file) {
-        $parser = (new ParserFactory())->create(ParserFactory::PREFER_PHP5);
-        try {
-            $asts = $parser->parse(file_get_contents($file));
-        } catch (\Exception $e) {
-            throw new \RuntimeException("Could not parse file {$file} -- {$e->getMessage()}");
-        }
 
-        $asts = $this->removeClasses($asts);
-        $asts = $this->removeNonFunctions($asts);
-        $asts = $this->removeExcludedFunctions($asts);
+		return $asts;
+	}
 
-        $this->setDefinedFunctions($asts);
+	/**
+	 * Removes any class statement from the list of statements.
+	 *
+	 * @param array $asts
+	 *
+	 * @return array
+	 */
+	protected function removeClasses( array $asts ) {
+		return array_filter( $asts, function ( NodeAbstract $stmt ) {
+			return ! $stmt instanceof Class_;
+		} );
+	}
 
-        return $this->wrapInFunctionExistsCheck($asts);
-    }
+	/**
+	 * Removes any non-function statement from the list of statements.
+	 *
+	 * @param array $asts
+	 *
+	 * @return array
+	 */
+	protected function removeNonFunctions( array $asts ) {
+		return array_filter( $asts, function ( NodeAbstract $stmt ) {
+			return $stmt instanceof Function_;
+		} );
+	}
 
-    /**
-     * Removes any class statement from the list of statements.
-     *
-     * @param array $asts
-     *
-     * @return array
-     */
-    protected function removeClasses(array $asts) {
-        return array_filter($asts, function (NodeAbstract $stmt) {
-            return !$stmt instanceof Class_;
-        });
-    }
+	/**
+	 * Removes the functions excluded in the configuration file from the list of
+	 * functions.
+	 *
+	 * @param array $asts
+	 *
+	 * @return array
+	 */
+	protected function removeExcludedFunctions( array $asts ) {
+		return array_filter( $asts, function ( NodeAbstract $stmt ) {
+			return ! in_array( $stmt->name, $this->config['exclude-functions'], true );
+		} );
+	}
 
-    /**
-     * Removes any non-function statement from the list of statements.
-     *
-     * @param array $asts
-     *
-     * @return array
-     */
-    protected function removeNonFunctions(array $asts) {
-        return array_filter($asts, function (NodeAbstract $stmt) {
-            return $stmt instanceof Function_;
-        });
-    }
+	/**
+	 * Parses the list of functions found in the source to set what will be returned
+	 * by the generated class `defined` method.
+	 *
+	 * @param array $asts
+	 */
+	protected function setDefinedFunctions( $asts ) {
+		$this->defined = array_merge( $this->defined, array_map( function ( Function_ $fun ) {
+			return new String_( $fun->name );
+		}, $asts ) );
+	}
 
-    /**
-     * Removes the functions excluded in the configuration file from the list of
-     * functions.
-     *
-     * @param array $asts
-     *
-     * @return array
-     */
-    protected function removeExcludedFunctions(array $asts) {
-        return array_filter($asts, function (NodeAbstract $stmt) {
-            return !in_array($stmt->name, $this->config['exclude-functions'], true);
-        });
-    }
+	/**
+	 * @param $source
+	 *
+	 * @return array
+	 */
+	protected function getSourceAstsFromFolder( $source ) {
+		$files = [];
+		$dirs  = [ $source ];
+		while ( null !== ( $dir = array_pop( $dirs ) ) ) {
+			if ( $dh = opendir( $dir ) ) {
+				while ( false !== ( $file = readdir( $dh ) ) ) {
+					if ( $file == '.' || $file == '..' ) {
+						continue;
+					}
+					$path = $dir . '/' . $file;
+					if ( is_dir( $path ) ) {
+						$dirs[] = $path;
+					} else {
+						$files[] = $path;
+					}
+				}
+				closedir( $dh );
+			}
+		}
 
-    /**
-     * Parses the list of functions found in the source to set what will be returned
-     * by the generated class `defined` method.
-     *
-     * @param array $asts
-     */
-    protected function setDefinedFunctions($asts) {
-        $this->defined = array_merge($this->defined, array_map(function (Function_ $fun) {
-            return new String_($fun->name);
-        }, $asts));
-    }
+		$files = $this->filterIncludedExcludedFiles( $files );
 
-    /**
-     * Wraps all the functions statements found in the source in `if(function_exists...` checks.
-     *
-     * @param array $asts
-     *
-     * @return array
-     */
-    protected function wrapInFunctionExistsCheck($asts) {
-        return array_map(function (Function_ $functionNode) {
-            return new If_(new BooleanNot(new FuncCall(new Name('function_exists'), [new Arg(new Scalar\String_($functionNode->name))])), [
-                'stmts' => [
-                    new FuncCall(new Name('\tad\FunctionMockerLe\define'), [
-                        new String_($functionNode->name),
-                        new Closure([
-                            'params' => $functionNode->params,
-                            'stmts' => [
-                                new Return_(),
-                            ],
-                        ]),
-                    ]),
-                ],
-            ]);
-        }, $asts);
-    }
+		$asts = array_map( function ( $file ) {
+			return $this->getFileFunctionsAsts( $file );
+		}, $files );
 
-    /**
-     * @param $files
-     */
-    protected function filterIncludedExcludedFiles($files) {
-        $excludedPaths = $this->normalizePaths($this->config['exclude-paths']);
-        $includedPaths = $this->normalizePaths($this->config['include-paths']);
+		$merged = array_merge( ...$asts );
 
-        $afterExclusion = array_filter($files, function ($file) use ($excludedPaths, $includedPaths) {
-            $isUnderIncludedPath = count(array_filter($includedPaths, function ($inc) use ($file) {
-                return 0 !== strpos($file, $inc);
-            }));
+		$this->definedCount = count( $merged );
 
-            if ($isUnderIncludedPath) {
-                return true;
-            }
+		return $merged;
+	}
 
-            $isUnderExcludedPath = count(array_filter($excludedPaths, function ($ex) use ($file) {
-                return 0 !== strpos($file, $ex);
-            }));
+	/**
+	 * @param $files
+	 */
+	protected function filterIncludedExcludedFiles( $files ) {
+		$excludedPaths = $this->normalizePaths( $this->config['exclude-paths'] );
+		$includedPaths = $this->normalizePaths( $this->config['include-paths'] );
 
-            return !$isUnderExcludedPath;
-        });
-    }
+		$afterExclusion = array_filter( $files, function ( $file ) use ( $excludedPaths, $includedPaths ) {
+			$isUnderIncludedPath = count( array_filter( $includedPaths, function ( $inc ) use ( $file ) {
+				return 0 !== strpos( $file, $inc );
+			} ) );
 
-    /**
-     * @param $excludedPaths
-     * @return array
-     */
-    protected function normalizePaths($excludedPaths) {
-        $excludedPaths = array_unique(array_merge($excludedPaths), array_map(function ($ex) {
-            return realpath($ex);
-        }, $excludedPaths));
-        return $excludedPaths;
-    }
+			if ( $isUnderIncludedPath ) {
+				return true;
+			}
 
-    /**
-     * Prints the class PHP code to file.
-     *
-     * @param string $systemName
-     * @param string $systemPath
-     * @param array $functionsAsts
-     *
-     * @return int
-     */
-    protected function printSystem($systemName, $systemPath, array $functionsAsts) {
-        $systemClassFrags = explode('\\', $systemName);
-        $systemClass = array_pop($systemClassFrags);
-        $outputFilePath = rtrim($systemPath, DIRECTORY_SEPARATOR) . "/{$systemClass}.php";
-        $realpath = realpath($outputFilePath) ?: $outputFilePath;
+			$isUnderExcludedPath = count( array_filter( $excludedPaths, function ( $ex ) use ( $file ) {
+				return 0 !== strpos( $file, $ex );
+			} ) );
 
-        $asts = [];
+			return ! $isUnderExcludedPath;
+		} );
 
-        $builder = new BuilderFactory();
-        $date = date('Y-m-d H:i:s');
-        $classStmt = $builder->class($systemClass)->implement('\\' . System::class)
-            ->setDocComment("/*\n* Auto-generated by the function-mocker-le package with the `fmle generate:system command`\n* on {$date}\n*/")
-            ->addStmt($builder->method('name')
-                ->makePublic()
-                ->addStmt(new Return_(new String_($systemClass)))
-            )
-            ->addStmt($builder->method('setUp')
-                ->makePublic()
-                ->addParam(new Param('args', null, null, false, true))
-                ->addStmts($functionsAsts)
-            )
-            ->addStmt(
-                $builder->method('tearDown')
-                    ->makePublic()
-                    ->addStmt(
-                        new FuncCall(
-                            new Name('\\tad\\FunctionMockerLe\\undefineAll'),
-                            [new MethodCall(new Variable('this'), new Name('defined'))]
-                        )
-                    )
-            )
-            ->addStmt(
-                $builder->method('defined')
-                    ->makePublic()
-                    ->addStmt(
-                        new Return_(new Array_($this->defined))
-                    )
-            );
+		return $afterExclusion;
+	}
 
-        $systemNamespace = $this->getSystemNamespace($systemName);
+	/**
+	 * @param $paths
+	 *
+	 * @return array
+	 */
+	protected function normalizePaths( $paths ) {
+		if ( empty( $paths ) ) {
+			return [];
+		}
 
-        if (!empty($systemNamespace)) {
-            $asts[] = $builder->namespace($systemNamespace)
-                ->addStmt($classStmt)
-                ->getNode();
-        } else {
-            $asts[] = $classStmt->getNode();
-        }
+		$paths = array_unique( array_merge( $paths ), array_map( function ( $ex ) {
+			return realpath( $ex );
+		}, $paths ) );
 
-        $output = (new PrettyPrinter())->prettyPrintFile($asts);
-        $this->output->writeln("<comment>Writing to file {$realpath}</comment>");
+		return $paths;
+	}
 
-        if (!is_dir(dirname($realpath)) && !mkdir(dirname($realpath), 0777, true) && !is_dir(dirname($realpath))) {
-            throw new \RuntimeException(sprintf('Directory "%s" could not be created', dirname($realpath)));
-        }
+	/**
+	 * Prints the class PHP code to file.
+	 *
+	 * @param string $systemName
+	 * @param string $systemPath
+	 * @param array  $functionsAsts
+	 *
+	 * @return int
+	 */
+	protected function printSystem( $systemName, $systemPath, array $functionsAsts ) {
+		$systemClassFrags        = explode( '\\', $systemName );
+		$systemClass             = array_pop( $systemClassFrags );
+		$outputFilePath          = rtrim( $systemPath, DIRECTORY_SEPARATOR ) . "/{$systemClass}.php";
+		$outputFunctionsFilePath = rtrim( $systemPath, DIRECTORY_SEPARATOR ) . "/{$systemClass}Functions.php";
+		$realpath                = realpath( $outputFilePath ) ?: $outputFilePath;
+		$functionsFileRealpath   = realpath( $outputFunctionsFilePath ) ?: $outputFunctionsFilePath;
 
-        $put = file_put_contents($realpath, $output, LOCK_EX);
+		$asts = [];
 
-        if ($put) {
-            $this->output->writeln("<info>Done! Check out the {$realpath} file.</info>");
-            return 0;
-        }
+		$builder           = new BuilderFactory();
+		$date              = date( 'Y-m-d H:i:s' );
+		$docLine           = "/*\n* Auto-generated by the function-mocker-le package with the `fmle generate:system command`\n* on {$date}\n*/";
+		$functionsFileName = "/{$systemName}Functions.php";
+		$classStmt         =
+			$builder->class( $systemClass )
+			        ->implement( '\\' . System::class )
+			        ->setDocComment( $docLine )
+			        ->addStmt( $builder->method( 'name' )
+			                           ->makePublic()
+			                           ->addStmt( new Return_( new String_( $systemClass ) ) ) )
+			        ->addStmt( $builder->method( 'setUp' )
+			                           ->makePublic()
+			                           ->addParam( new Param( 'args', null, null, false, true ) )
+			                           ->addStmt( new Include_( new Concat( new Scalar\MagicConst\Dir(), new String_( $functionsFileName ) ), Include_::TYPE_INCLUDE_ONCE ) ) //        ->addStmts($this->wrapInFunctionExistsCheck($functionsAsts)))
+			        )
+			        ->addStmt( $builder->method( 'tearDown' )
+			                           ->makePublic()
+			                           ->addStmt( new FuncCall( new Name( '\\tad\\FunctionMockerLe\\undefineAll' ), [ new MethodCall( new Variable( 'this' ), new Name( 'defined' ) ) ] ) ) )
+			        ->addStmt( $builder->method( 'defined' )->makePublic()->addStmt( new Return_( new Array_( $this->defined ) ) ) );
 
-        $this->output->writeln("<error>Could not write to {$realpath}...</error>");
+		$systemNamespace = $this->getSystemNamespace( $systemName );
 
-        return 1;
-    }
+		if ( ! empty( $systemNamespace ) ) {
+			$asts[] = $builder->namespace( $systemNamespace )->addStmt( $classStmt )->getNode();
+		} else {
+			$asts[] = $classStmt->getNode();
+		}
 
-    /**
-     * Configures the command.
-     */
-    protected function configure() {
-        $this->setName(self::NAME)
-            ->setDescription('Scaffolds a System from source files')
-            ->setHelp('This command will parse a specified folder, or file, and generate a System defining the functions found in the source.')
-            ->addArgument('source', InputArgument::REQUIRED, 'The source file or folder path, relative to the current working directory.')
-            ->addArgument('system', InputArgument::REQUIRED, 'The name, including namespace, of the System class to generate')
-            ->addOption('system-path', 'sp', InputOption::VALUE_OPTIONAL, 'The path to the folder that will contain the System file; if the destination does not exist it will be created.', getcwd())
-            ->addOption('config-file', 'c', InputOption::VALUE_OPTIONAL, 'The path to a generation configuration file')
-            ->addOption('generate-headers-file', 'gh', InputOption::VALUE_OPTIONAL, 'Generate an headers file for the system class');
-    }
+		$functionsAsts            = $functionsAsts;
+		$wroteSystemFunctionsFile = $this->writeToFile( $functionsAsts, $functionsFileRealpath );
+		$wroteSystemClassFile     = $this->writeToFile( $asts, $realpath );
 
-    protected function printSystemHeaders($systemName, $systemPath, array $functionsAsts) {
-    }
+		return $wroteSystemFunctionsFile && $wroteSystemClassFile;
+	}
 
-    /**
-     * @param $systemClassFrags
-     * @return string
-     */
-    protected function getSystemNamespace($systemName) {
-        $systemClassFrags = explode('\\', $systemName);
-        return implode('\\', $systemClassFrags);
-    }
+	/**
+	 * @param $systemClassFrags
+	 *
+	 * @return string
+	 */
+	protected function getSystemNamespace( $systemName ) {
+		$systemClassFrags = explode( '\\', $systemName );
+		array_pop( $systemClassFrags );
+
+		return implode( '\\', $systemClassFrags );
+	}
+
+	protected function writeToFile( array $asts, $realpath, $fileDoc = '' ) {
+		$output = ( new PrettyPrinter() )->prettyPrintFile( $asts );
+		$this->output->writeln( "<comment>Writing to file {$realpath}</comment>" );
+
+		if ( ! is_dir( dirname( $realpath ) ) && ! mkdir( dirname( $realpath ), 0777, true ) && ! is_dir( dirname( $realpath ) ) ) {
+			throw new \RuntimeException( sprintf( 'Directory "%s" could not be created', dirname( $realpath ) ) );
+		}
+
+		if ( ! empty( $fileDoc ) ) {
+			$output = $fileDoc . "\n\n" . $output;
+		}
+		$put = file_put_contents( $realpath, $output, LOCK_EX );
+
+		if ( $put ) {
+			$this->output->writeln( "<info>Done! Check out the {$realpath} file.</info>" );
+
+			return 0;
+		}
+
+		$this->output->writeln( "<error>Could not write to {$realpath}...</error>" );
+
+		return 1;
+	}
+
+	/**
+	 * Wraps all the functions statements found in the source in `if(function_exists...` checks.
+	 *
+	 * @param array $asts
+	 *
+	 * @return array
+	 */
+	protected function wrapInFunctionExistsCheck( $asts ) {
+		return array_map( function ( Function_ $functionNode ) {
+			return new If_( new BooleanNot( new FuncCall( new Name( 'function_exists' ), [ new Arg( new Scalar\String_( $functionNode->name ) ) ] ) ), [
+				'stmts' => [
+					new FuncCall( new Name( '\tad\FunctionMockerLe\define' ), [
+						new String_( $functionNode->name ),
+						new Closure( [
+							'params' => $functionNode->params,
+							'stmts'  => [
+								new Return_(),
+							],
+						] ),
+					] ),
+				],
+			] );
+		}, $asts );
+	}
+
+	/**
+	 * Configures the command.
+	 */
+	protected function configure() {
+		$this->setName( self::NAME )
+		     ->setDescription( 'Scaffolds a System from source files' )
+		     ->setHelp( 'This command will parse a specified folder, or file, and generate a System defining the functions found in the source.' )
+		     ->addArgument( 'source', InputArgument::REQUIRED, 'The source file or folder path, relative to the current working directory.' )
+		     ->addArgument( 'system', InputArgument::REQUIRED, 'The name, including namespace, of the System class to generate' )
+		     ->addOption( 'system-path', 'sp', InputOption::VALUE_OPTIONAL, 'The path to the folder that will contain the System file; if the destination does not exist it will be created.', getcwd() )
+		     ->addOption( 'config-file', 'c', InputOption::VALUE_OPTIONAL, 'The path to a generation configuration file' );
+	}
 }

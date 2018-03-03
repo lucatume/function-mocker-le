@@ -87,19 +87,4 @@ class DefineTest extends TestCase {
 		$this->assertEquals(5, add(10, -5));
 		$this->assertEquals(7, add(10, -3));
 	}
-
-	/**
-	 * It should throw if trying to define a function not defined by the library
-	 *
-	 * @test
-	 */
-	public function should_throw_if_trying_to_define_a_function_not_defined_by_the_library() {
-		eval('function foobar(){};');
-
-		$this->expectException(RuntimeException::class);
-
-		define('foobar', function () {
-			return 2389;
-		});
-	}
 }

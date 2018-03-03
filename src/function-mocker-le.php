@@ -10,28 +10,20 @@ namespace tad\FunctionMockerLe;
  * @param callable $callback A callable closure, class/instance and method
  *                           couple or function name.
  */
-function define($function, $callback) {
-  if (!isset(Store::$defined[$function]) && function_exists($function)) {
-    $message = "Function {$function} has been defined before Function Mocker LE did its first redefinition attempt.";
-    $message .= "\nIf you need to redefine (monkey patch) an existing function use the Function Mocker library (lucatume/function-mocker).";
-    throw new \RunTimeException($message);
-  }
+function define( $function, $callback ) {
+	Store::$defined[ $function ] = $callback;
 
-  Store::$defined[$function] = $callback;
+	$function       = array_filter( explode( '\\', $function ) );
+	$namespaceFrags = array_splice( $function, 0, count( $function ) - 1 );
+	$namespace      = empty( $namespaceFrags ) ? '' : 'namespace ' . implode( '\\', $namespaceFrags ) . ';';
+	$function       = reset( $function );
+	$functionFqn    = empty( $namespace ) ? $function : trim( $namespace, ';' ) . '\\' . $function;
 
-  $function = array_filter(explode('\\', $function));
-  $namespaceFrags = array_splice($function, 0, count($function) - 1);
-  $namespace = empty($namespaceFrags) ? '' : 'namespace ' . implode('\\',
-      $namespaceFrags) . ';';
-  $function = reset($function);
-  $functionFqn = empty($namespace) ? $function : trim($namespace,
-      ';') . '\\' . $function;
+	if ( function_exists( $functionFqn ) ) {
+		return;
+	}
 
-  if (function_exists($functionFqn)) {
-    return;
-  }
-
-  $code = <<< PHP
+	$code = <<< PHP
 {$namespace}
 function {$function}(){
 	\$f = \\tad\\FunctionMockerLE\\Store::\$defined['{$function}'];
@@ -40,7 +32,7 @@ function {$function}(){
 }
 PHP;
 
-  eval($code);
+	eval( $code );
 }
 
 /**
@@ -49,10 +41,10 @@ PHP;
  * @param array          $functions
  * @param       callable $callback
  */
-function defineAll(array $functions, $callback) {
-  foreach ($functions as $function) {
-    define($function, $callback);
-  }
+function defineAll( array $functions, $callback ) {
+	foreach ( $functions as $function ) {
+		define( $function, $callback );
+	}
 }
 
 /**
@@ -60,10 +52,10 @@ function defineAll(array $functions, $callback) {
  *
  * @param array $map The definition map, format [<function> => <callback>]
  */
-function defineWithMap(array $map) {
-  foreach ($map as $function => $callback) {
-    define($function, $callback);
-  }
+function defineWithMap( array $map ) {
+	foreach ( $map as $function => $callback ) {
+		define( $function, $callback );
+	}
 }
 
 /**
@@ -71,12 +63,12 @@ function defineWithMap(array $map) {
  *
  * @param array $map The definition map, format [<function> => <value>]
  */
-function defineWithValueMap(array $map) {
-  foreach ($map as $function => $value) {
-    define($function, function () use ($value) {
-      return $value;
-    });
-  }
+function defineWithValueMap( array $map ) {
+	foreach ( $map as $function => $value ) {
+		define( $function, function () use ( $value ) {
+			return $value;
+		} );
+	}
 }
 
 /**
@@ -85,7 +77,7 @@ function defineWithValueMap(array $map) {
  * @return string
  */
 function randomName() {
-  return 'function_' . md5(uniqid('function', TRUE));
+	return 'function_' . md5( uniqid( 'function', true ) );
 }
 
 /**
@@ -95,8 +87,8 @@ function randomName() {
  *
  * @param string $function
  */
-function undefine($function) {
-  Store::$defined[$function] = Store::undefined($function);
+function undefine( $function ) {
+	Store::$defined[ $function ] = Store::undefined( $function );
 }
 
 /**
@@ -108,22 +100,22 @@ function undefine($function) {
  *
  * @param array|null $functions
  */
-function undefineAll(array $functions = NULL) {
-  foreach (Store::$systems as $name => $system) {
-    $system->tearDown();
-  }
+function undefineAll( array $functions = null ) {
+	foreach ( Store::$systems as $name => $system ) {
+		$system->tearDown();
+	}
 
-  Store::$systems = [];
+	Store::$systems = [];
 
-  if (NULL === $functions) {
-    undefineAll(array_keys(Store::$defined));
+	if ( null === $functions ) {
+		undefineAll( array_keys( Store::$defined ) );
 
-    return;
-  }
+		return;
+	}
 
-  foreach ($functions as $function) {
-    undefine($function);
-  }
+	foreach ( $functions as $function ) {
+		undefine( $function );
+	}
 }
 
 /**
@@ -134,17 +126,17 @@ function undefineAll(array $functions = NULL) {
  *                                                 arguments that will be
  *                                                 passed to the system.
  */
-function setupSystem(System $system, $arg1 = NULL) {
-  $args = func_get_args();
-  $sys = array_shift($args);
-  Store::$systems[$sys->name()] = $sys;
+function setupSystem( System $system, $arg1 = null ) {
+	$args                           = func_get_args();
+	$sys                            = array_shift( $args );
+	Store::$systems[ $sys->name() ] = $sys;
 
 
-  if (count($args) === 0) {
-    $sys->setUp();
-  } else {
-    call_user_func_array([$sys, 'setUp'], $args);
-  }
+	if ( count( $args ) === 0 ) {
+		$sys->setUp();
+	} else {
+		call_user_func_array( [ $sys, 'setUp' ], $args );
+	}
 }
 
 /**
@@ -153,10 +145,28 @@ function setupSystem(System $system, $arg1 = NULL) {
  * @param string $systemName The name of a system set up using hte
  *                           `setupSystem` function.
  */
-function tearDownSystem($systemName) {
-  if (!array_key_exists($systemName, Store::$systems)) {
-    throw new \InvalidArgumentException("No system {$systemName} was ever set up.");
-  }
+function tearDownSystem( $systemName ) {
+	if ( ! array_key_exists( $systemName, Store::$systems ) ) {
+		throw new \InvalidArgumentException( "No system {$systemName} was ever set up." );
+	}
 
-  Store::$systems[$systemName]->tearDown();
+	Store::$systems[ $systemName ]->tearDown();
+}
+
+/**
+ * Calls the replacement function with the specified arguments.
+ *
+ * @param       string $function The function name
+ * @param array        $args     An array of arguments to call the function with
+ *
+ * @return mixed|null
+ */
+function callback( $function, array $args = [] ) {
+	$function = ltrim( $function, '\\' );
+
+	if ( ! isset( Store::$defined[ $function ] ) ) {
+		return null;
+	}
+
+	return call_user_func_array( Store::$defined[ $function ], $args);
 }
