@@ -2,6 +2,8 @@
 
 namespace tad\FunctionMockerLe;
 
+use Prophecy\Prophet;
+
 /**
  * Defines a non defined function, or redefines one defined by this class, to
  * return the value of a callback.
@@ -10,29 +12,27 @@ namespace tad\FunctionMockerLe;
  * @param callable $callback A callable closure, class/instance and method
  *                           couple or function name.
  */
-function define( $function, $callback ) {
-	Store::$defined[ $function ] = $callback;
+function define($function, $callback) {
+    $functionFqn = '\\' . ltrim($function, '\\');
+    Store::$defined[$functionFqn] = $callback;
+    $function = array_filter(explode('\\', $functionFqn));
+    $namespaceFrags = array_splice($function, 0, count($function) - 1);
+    $namespace = empty($namespaceFrags) ? '' : 'namespace ' . implode('\\',
+            $namespaceFrags) . ';';
+    $function = reset($function);
 
-	$function       = array_filter( explode( '\\', $function ) );
-	$namespaceFrags = array_splice( $function, 0, count( $function ) - 1 );
-	$namespace      = empty( $namespaceFrags ) ? '' : 'namespace ' . implode( '\\', $namespaceFrags ) . ';';
-	$function       = reset( $function );
-	$functionFqn    = empty( $namespace ) ? $function : trim( $namespace, ';' ) . '\\' . $function;
+    if (function_exists($functionFqn)) {
+        return;
+    }
 
-	if ( function_exists( $functionFqn ) ) {
-		return;
-	}
-
-	$code = <<< PHP
+    $code = <<< PHP
 {$namespace}
 function {$function}(){
-	\$f = \\tad\\FunctionMockerLE\\Store::\$defined['{$function}'];
-	
-	return call_user_func_array(\$f, func_get_args());
+	return \\tad\\FunctionMockerLe\\callback('{$functionFqn}', func_get_args());
 }
 PHP;
 
-	eval( $code );
+    eval($code);
 }
 
 /**
@@ -41,10 +41,10 @@ PHP;
  * @param array          $functions
  * @param       callable $callback
  */
-function defineAll( array $functions, $callback ) {
-	foreach ( $functions as $function ) {
-		define( $function, $callback );
-	}
+function defineAll(array $functions, $callback) {
+    foreach ($functions as $function) {
+        define($function, $callback);
+    }
 }
 
 /**
@@ -52,10 +52,10 @@ function defineAll( array $functions, $callback ) {
  *
  * @param array $map The definition map, format [<function> => <callback>]
  */
-function defineWithMap( array $map ) {
-	foreach ( $map as $function => $callback ) {
-		define( $function, $callback );
-	}
+function defineWithMap(array $map) {
+    foreach ($map as $function => $callback) {
+        define($function, $callback);
+    }
 }
 
 /**
@@ -63,12 +63,12 @@ function defineWithMap( array $map ) {
  *
  * @param array $map The definition map, format [<function> => <value>]
  */
-function defineWithValueMap( array $map ) {
-	foreach ( $map as $function => $value ) {
-		define( $function, function () use ( $value ) {
-			return $value;
-		} );
-	}
+function defineWithValueMap(array $map) {
+    foreach ($map as $function => $value) {
+        define($function, function () use ($value) {
+            return $value;
+        });
+    }
 }
 
 /**
@@ -77,7 +77,7 @@ function defineWithValueMap( array $map ) {
  * @return string
  */
 function randomName() {
-	return 'function_' . md5( uniqid( 'function', true ) );
+    return 'function_' . md5(uniqid('function', true));
 }
 
 /**
@@ -87,8 +87,9 @@ function randomName() {
  *
  * @param string $function
  */
-function undefine( $function ) {
-	Store::$defined[ $function ] = Store::undefined( $function );
+function undefine($function) {
+    $functionFqn = '\\' . ltrim($function, '\\');
+    Store::$defined[$functionFqn] = Store::undefined($functionFqn);
 }
 
 /**
@@ -100,22 +101,22 @@ function undefine( $function ) {
  *
  * @param array|null $functions
  */
-function undefineAll( array $functions = null ) {
-	foreach ( Store::$systems as $name => $system ) {
-		$system->tearDown();
-	}
+function undefineAll(array $functions = null) {
+    foreach (Store::$systems as $name => $system) {
+        $system->tearDown();
+    }
 
-	Store::$systems = [];
+    Store::$systems = [];
 
-	if ( null === $functions ) {
-		undefineAll( array_keys( Store::$defined ) );
+    if (null === $functions) {
+        undefineAll(array_keys(Store::$defined));
 
-		return;
-	}
+        return;
+    }
 
-	foreach ( $functions as $function ) {
-		undefine( $function );
-	}
+    foreach ($functions as $function) {
+        undefine($function);
+    }
 }
 
 /**
@@ -126,17 +127,17 @@ function undefineAll( array $functions = null ) {
  *                                                 arguments that will be
  *                                                 passed to the system.
  */
-function setupSystem( System $system, $arg1 = null ) {
-	$args                           = func_get_args();
-	$sys                            = array_shift( $args );
-	Store::$systems[ $sys->name() ] = $sys;
+function setupSystem(System $system, $arg1 = null) {
+    $args = func_get_args();
+    $sys = array_shift($args);
+    Store::$systems[$sys->name()] = $sys;
 
 
-	if ( count( $args ) === 0 ) {
-		$sys->setUp();
-	} else {
-		call_user_func_array( [ $sys, 'setUp' ], $args );
-	}
+    if (count($args) === 0) {
+        $sys->setUp();
+    } else {
+        call_user_func_array([$sys, 'setUp'], $args);
+    }
 }
 
 /**
@@ -145,12 +146,12 @@ function setupSystem( System $system, $arg1 = null ) {
  * @param string $systemName The name of a system set up using hte
  *                           `setupSystem` function.
  */
-function tearDownSystem( $systemName ) {
-	if ( ! array_key_exists( $systemName, Store::$systems ) ) {
-		throw new \InvalidArgumentException( "No system {$systemName} was ever set up." );
-	}
+function tearDownSystem($systemName) {
+    if (!array_key_exists($systemName, Store::$systems)) {
+        throw new \InvalidArgumentException("No system {$systemName} was ever set up.");
+    }
 
-	Store::$systems[ $systemName ]->tearDown();
+    Store::$systems[$systemName]->tearDown();
 }
 
 /**
@@ -161,12 +162,56 @@ function tearDownSystem( $systemName ) {
  *
  * @return mixed|null
  */
-function callback( $function, array $args = [] ) {
-	$function = ltrim( $function, '\\' );
+function callback($function, array $args = []) {
+    $functionFqn = '\\' . ltrim($function, '\\');
 
-	if ( ! isset( Store::$defined[ $function ] ) ) {
-		return null;
-	}
+    if (!isset(Store::$defined[$functionFqn])) {
+        return null;
+    }
 
-	return call_user_func_array( Store::$defined[ $function ], $args);
+    return call_user_func_array(Store::$defined[$functionFqn], $args);
+}
+
+/**
+ * Returns a method prophecy generated and handled by phpspec/prophecy
+ *
+ * Use this method to stub, mock and spy functions defined, via `define` or `callback`, by
+ * Function Mocker LE.
+ *
+ * @param string $function
+ *
+ * @return \Prophecy\Prophecy\MethodProphecy
+ *
+ * @see \tad\FunctionMockerLe\define()
+ * @see \tad\FunctionMockerLe\callback()
+ */
+function prophesize($function) {
+    static $prophet;
+    $functionArguments = func_get_args();
+    array_shift($functionArguments);
+
+    if (null === $prophet) {
+        $prophet = new Prophet();
+    }
+
+    $frags = explode('\\', $function);
+    $functionName = array_pop($frags);
+    $namespace = count($frags) ? implode('\\', $frags) : false;
+    $class = '_FMLEClass_' . str_replace('\\', '_', $function);
+    $fullClassName = $namespace ? $namespace . '\\' . $class : $class;
+
+    if (!class_exists($fullClassName)) {
+        $classCode = sprintf('class %s{ public function %s(){} }', $class, $functionName);
+        eval($classCode);
+    }
+
+    $prophecy = $prophet->prophesize($class);
+    $methodProphecy = $prophecy->{$functionName}(...$functionArguments);
+
+    define($function, function () use ($prophecy, $functionName) {
+        $revealed = $prophecy->reveal();
+        return call_user_func_array([$revealed, $functionName], func_get_args());
+    });
+
+    return $methodProphecy;
 }
