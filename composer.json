@@ -3,7 +3,7 @@
   "description": "A lightweight function mocking solution.",
   "type": "library",
   "require-dev": {
-    "phpunit/phpunit": "^6.3"
+    "phpunit/phpunit": "^5.0"
   },
   "license": "GPL-2.0",
   "authors": [
