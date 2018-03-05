@@ -90,4 +90,48 @@ class GenerateSystemTest extends TestCase {
         $this->assertEquals('string2', $parameters[1]->getName());
         $this->assertFalse($parameters[1]->hasType());
     }
+
+    /**
+     * It should generate system from folder
+     *
+     * @test
+     */
+    public function should_generate_system_from_folder() {
+        /** @var InputInterface $input */
+        $input = $this->prophesize(InputInterface::class);
+        $input->getArgument('source')->willReturn($this->data . 'functions-folder');
+        $input->getArgument('system')->willReturn('SystemThree');
+        $input->getOption('system-path')->willReturn($this->output);
+        $input->getOption('config-file')->willReturn(null);
+        $input->hasOption('generate-headers-file')->willReturn(true);
+        /** @var OutputInterface $output */
+        $output = $this->prophesize(OutputInterface::class);
+        $output->writeln(Argument::type('string'))->willReturn(null);
+
+        $sut = new GenerateSystem();
+        $sut->execute($input->reveal(), $output->reveal());
+
+        $this->assertFileExists($this->output . '/SystemThree.php');
+        $this->assertFileExists($this->output . '/SystemThree-functions.php');
+
+        include_once($this->output . '/SystemThree.php');
+
+        $this->assertTrue(class_exists('\\SystemThree'));
+
+        $one = new \SystemThree();
+        $one->setUp();
+
+        foreach ([
+            'testFunction123',
+            'testFunction124',
+            'testFunction125',
+            'testFunction126',
+            'testFunction127',
+            '\\salty\\dogs\\testFunction125',
+            '\\salty\\dogs\\testFunction126',
+            '\\salty\\dogs\\testFunction127',
+        ] as $functionName){
+            $this->assertTrue(function_exists($functionName),"Function {$functionName} does not exist.");
+        }
+    }
 }

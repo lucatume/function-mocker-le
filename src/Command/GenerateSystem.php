@@ -16,9 +16,11 @@ use PhpParser\Node\Name;
 use PhpParser\Node\Param;
 use PhpParser\Node\Scalar;
 use PhpParser\Node\Scalar\String_;
+use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\If_;
+use PhpParser\Node\Stmt\Namespace_;
 use PhpParser\Node\Stmt\Return_;
 use PhpParser\NodeAbstract;
 use PhpParser\ParserFactory;
@@ -176,23 +178,47 @@ class GenerateSystem extends Command {
             throw new \RuntimeException("Could not parse file {$file} -- {$e->getMessage()}");
         }
 
+        $asts = $this->extractNamespaceFunctions($asts);
         $asts = $this->removeClasses($asts);
         $asts = $this->removeNonFunctions($asts);
         $asts = $this->removeExcludedFunctions($asts);
 
         $this->setDefinedFunctions($asts);
 
-        $asts = array_map(function (Function_ $function) {
-            $function->stmts = [
+        $asts = array_map(function (Stmt $node) {
+            $functionDefintionStmts = [
                 new Return_(new FuncCall(new Name('\\tad\\FunctionMockerLe\\callback'), [
                     new Scalar\MagicConst\Function_(),
                     new FuncCall(new Name('func_get_args')),
                 ])),
             ];
 
-            return $function;
+            if ($node instanceof Function_) {
+                $node->stmts = $functionDefintionStmts;
+            } elseif ($node instanceof Namespace_) {
+                $node->stmts = array_map(function (Function_ $function) use ($functionDefintionStmts) {
+                    $function->stmts = $functionDefintionStmts;
+                    return $function;
+                }, $node->stmts);
+            }
+
+            return $node;
         }, $asts);
 
+
+        return $asts;
+    }
+
+    protected function extractNamespaceFunctions($asts) {
+        foreach ($asts as $ast) {
+            if (!$ast instanceof Namespace_) {
+                continue;
+            }
+
+            $ast->stmts = array_filter($ast->stmts, function ($stmt) {
+                return $stmt instanceof Function_;
+            });
+        }
 
         return $asts;
     }
@@ -219,7 +245,7 @@ class GenerateSystem extends Command {
      */
     protected function removeNonFunctions(array $asts) {
         return array_filter($asts, function (NodeAbstract $stmt) {
-            return $stmt instanceof Function_;
+            return $stmt instanceof Function_ || $stmt instanceof Namespace_;
         });
     }
 
@@ -233,7 +259,13 @@ class GenerateSystem extends Command {
      */
     protected function removeExcludedFunctions(array $asts) {
         return array_filter($asts, function (NodeAbstract $stmt) {
-            return !in_array($stmt->name, $this->config['exclude-functions'], true);
+            if ($stmt instanceof Function_) {
+                return !in_array($stmt->name, $this->config['exclude-functions'], true);
+            } elseif ($stmt instanceof Namespace_) {
+                $stmt->stmts = $this->removeExcludedFunctions($stmt->stmts);
+
+                return true;
+            }
         });
     }
 
@@ -244,9 +276,19 @@ class GenerateSystem extends Command {
      * @param array $asts
      */
     protected function setDefinedFunctions($asts) {
-        $this->defined = array_merge($this->defined, array_map(function (Function_ $fun) {
-            return new String_($fun->name);
-        }, $asts));
+        $definedHere = array_reduce($asts, function ($carry, Stmt $stmt) {
+            if ($stmt instanceof Function_) {
+                $carry[] = new String_($stmt->name);
+            } elseif ($stmt instanceof Namespace_) {
+                $carry = array_merge($carry, array_map(function (Function_ $function) use ($stmt) {
+                    return new String_('\\' . $stmt->name . '\\' . $function->name);
+                }, $stmt->stmts));
+            }
+
+            return $carry;
+        }, []);
+
+        $this->defined = array_merge($this->defined, $definedHere);
     }
 
     /**
@@ -383,8 +425,15 @@ class GenerateSystem extends Command {
             $asts[] = $classStmt->getNode();
         }
 
-        $functionsAsts = $functionsAsts;
-        $wroteSystemFunctionsFile = $this->writeToFile($functionsAsts, $functionsFileRealpath);
+        $namespacedStmts = array_filter($functionsAsts, function (Stmt $stmt) {
+            return $stmt instanceof Namespace_;
+        });
+        $globalNamespaceFunctionsStmt = new Namespace_(null, array_filter($functionsAsts, function (Stmt $stmt) {
+            return $stmt instanceof Function_;
+        }));
+
+        array_unshift($namespacedStmts, $globalNamespaceFunctionsStmt);
+        $wroteSystemFunctionsFile = $this->writeToFile($namespacedStmts, $functionsFileRealpath);
         $wroteSystemClassFile = $this->writeToFile($asts, $realpath);
 
         return $wroteSystemFunctionsFile && $wroteSystemClassFile;
