@@ -107,7 +107,6 @@ class GenerateSystemTest extends TestCase {
         /** @var OutputInterface $output */
         $output = $this->prophesize(OutputInterface::class);
         $output->writeln(Argument::type('string'))->willReturn(null);
-
         $sut = new GenerateSystem();
         $sut->execute($input->reveal(), $output->reveal());
 
