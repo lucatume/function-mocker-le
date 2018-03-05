@@ -23,7 +23,6 @@ class GenerateSystemTest extends TestCase {
         $input->getArgument('system')->willReturn('SystemOne');
         $input->getOption('system-path')->willReturn($this->output);
         $input->getOption('config-file')->willReturn(null);
-        $input->hasOption('generate-headers-file')->willReturn(true);
         /** @var OutputInterface $output */
         $output = $this->prophesize(OutputInterface::class);
         $output->writeln(Argument::type('string'))->willReturn(null);
@@ -63,7 +62,6 @@ class GenerateSystemTest extends TestCase {
         $input->getArgument('system')->willReturn('foo\\bar\\SystemTwo');
         $input->getOption('system-path')->willReturn($this->output);
         $input->getOption('config-file')->willReturn(null);
-        $input->hasOption('generate-headers-file')->willReturn(true);
         /** @var OutputInterface $output */
         $output = $this->prophesize(OutputInterface::class);
         $output->writeln(Argument::type('string'))->willReturn(null);
@@ -103,7 +101,6 @@ class GenerateSystemTest extends TestCase {
         $input->getArgument('system')->willReturn('SystemThree');
         $input->getOption('system-path')->willReturn($this->output);
         $input->getOption('config-file')->willReturn(null);
-        $input->hasOption('generate-headers-file')->willReturn(true);
         /** @var OutputInterface $output */
         $output = $this->prophesize(OutputInterface::class);
         $output->writeln(Argument::type('string'))->willReturn(null);
