@@ -1,7 +1,7 @@
 <?php
-$foo = 'bar';
+$bar = 'foo';
 
-class Foo {
+class Bar {
 
   function classMethod($one, $two) {
 
@@ -18,6 +18,6 @@ class Foo {
  * @param $arg1
  * @param $string2
  */
-function aFunction(array $arg1, $string2) {
+function bFunction(array $arg1, $string2) {
 	return 'foo-bar';
 }
