@@ -2,9 +2,6 @@
   "name": "lucatume/function-mocker-le",
   "description": "A lightweight function mocking solution.",
   "type": "library",
-  "require-dev": {
-    "phpunit/phpunit": "^5.0"
-  },
   "license": "GPL-2.0",
   "authors": [
     {
@@ -23,7 +20,8 @@
   "require": {
     "php": ">=5.6",
     "symfony/console": "^3.4",
-    "nikic/php-parser": "^3.1"
+    "nikic/php-parser": "^3.1",
+    "phpunit/phpunit": "^5.0"
   },
   "bin": [
     "bin/fmle"
