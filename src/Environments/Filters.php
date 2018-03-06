@@ -1,6 +1,6 @@
 <?php
 
-namespace tad\FunctionMockerLe\Systems;
+namespace tad\FunctionMockerLe\Environments;
 
 
 class Filters {
@@ -45,7 +45,7 @@ class Filters {
   protected $currentFilter;
 
   /**
-   * @return \tad\FunctionMockerLe\Systems\Filters|static
+   * @return \tad\FunctionMockerLe\Environments\Filters|static
    */
   public static function instance() {
     if (self::$instance === null) {

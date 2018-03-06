@@ -3,7 +3,7 @@
  * Filters and actions replacements.
  */
 
-use tad\FunctionMockerLe\Systems\Filters;
+use tad\FunctionMockerLe\Environments\Filters;
 
 if ($unsafe || !function_exists('add_action')) {
     \tad\FunctionMockerLe\define('add_action', function ($action, $function_to_add, $priority = 10, $accepted_args = 1) {

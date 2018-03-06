@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Added
-- support for systems with the `setupSystem` function
+- support for systems with the `setupEnvironment` function
 - first version of the `WordPress` system
 
 ## [1.0.1](1.0.1) - 2017-09-02

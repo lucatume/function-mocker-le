@@ -1,12 +1,5 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: luca
- * Date: 22/02/2018
- * Time: 13:44
- */
-
-namespace tad\FunctionMockerLe\Systems;
+namespace tad\FunctionMockerLe\Environments;
 
 
 use PHPUnit\Framework\Assert;
@@ -15,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 class WordPressTest extends TestCase {
 
   /**
-   * @var \tad\FunctionMockerLe\Systems\WordPress
+   * @var \tad\FunctionMockerLe\Environments\WordPress
    */
   protected $sut;
 

@@ -12,9 +12,9 @@ class Store {
 	public static $defined = [];
 
 	/**
-	 * @var \tad\FunctionMockerLe\System[] Stores the set up systems in a [<name> => <system-instance>] array.
+	 * @var \tad\FunctionMockerLe\Environment[] Stores the set up environments in a [<name> => <environment-instance>] array.
 	 */
-	public static $systems = [];
+	public static $environments = [];
 
 	/**
 	 * Returns a closure function throwing an exception.

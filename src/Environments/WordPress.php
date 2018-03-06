@@ -1,18 +1,18 @@
 <?php
 
-namespace tad\FunctionMockerLe\Systems;
+namespace tad\FunctionMockerLe\Environments;
 
 
-use tad\FunctionMockerLe\System;
+use tad\FunctionMockerLe\Environment;
 
-class WordPress implements System {
+class WordPress implements Environment {
     /**
      * @var bool
      */
     protected $unsafe =false;
 
     /**
-     * Returns the system slug.
+     * Returns the environment slug.
      *
      * @return string
      */
@@ -35,7 +35,7 @@ class WordPress implements System {
     }
 
     /**
-     * Tears down the definitions made by the system in the setup phase.
+     * Tears down the definitions made by the environment in the setup phase.
      *
      * @return void
      */
@@ -44,7 +44,7 @@ class WordPress implements System {
     }
 
     /**
-     * Returns a list of the functions defined by the System.
+     * Returns a list of the functions defined by the Environment.
      *
      * @return array
      */

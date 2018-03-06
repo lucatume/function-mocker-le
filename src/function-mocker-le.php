@@ -95,16 +95,16 @@ function undefine($function) {
  * functions.
  *
  * Undefined functions will throw an UndefinedFunctionException when called;
- * the method will tear down all the systems too.
+ * the method will tear down all the environments too.
  *
  * @param array|null $functions
  */
 function undefineAll(array $functions = null) {
-    foreach (Store::$systems as $name => $system) {
-        $system->tearDown();
+    foreach (Store::$environments as $name => $env) {
+        $env->tearDown();
     }
 
-    Store::$systems = [];
+    Store::$environments = [];
 
     if (null === $functions) {
         undefineAll(array_keys(Store::$defined));
@@ -118,38 +118,38 @@ function undefineAll(array $functions = null) {
 }
 
 /**
- * Sets up a system calling its `setUp` method.
+ * Sets up an environment calling its `setUp` method.
  *
- * @param \tad\FunctionMockerLe\System $system
- * @param mixed|null                   $arg1       One or more additional
+ * @param \tad\FunctionMockerLe\Environment $environment
+ * @param mixed|null                        $arg1       One or more additional
  *                                                 arguments that will be
- *                                                 passed to the system.
+ *                                                 passed to the environment.
  */
-function setupSystem(System $system, $arg1 = null) {
-    $args = func_get_args();
-    $sys = array_shift($args);
-    Store::$systems[$sys->name()] = $sys;
+function setupEnvironment(Environment $environment, $arg1 = null) {
+    $args                              = func_get_args();
+    $env                               = array_shift($args);
+    Store::$environments[$env->name()] = $env;
 
 
     if (count($args) === 0) {
-        $sys->setUp();
+        $env->setUp();
     } else {
-        call_user_func_array([$sys, 'setUp'], $args);
+        call_user_func_array([$env, 'setUp'], $args);
     }
 }
 
 /**
- * Calls a specific system `tearDown` method.
+ * Calls a specific environment `tearDown` method.
  *
- * @param string $systemName The name of a system set up using hte
- *                           `setupSystem` function.
+ * @param string $envName    The name of an environment set up using hte
+ *                           `setupEnvironment` function.
  */
-function tearDownSystem($systemName) {
-    if (!array_key_exists($systemName, Store::$systems)) {
-        throw new \InvalidArgumentException("No system {$systemName} was ever set up.");
+function tearDownEnvironment($envName) {
+    if (!array_key_exists($envName, Store::$environments)) {
+        throw new \InvalidArgumentException("No environment {$envName} was ever set up.");
     }
 
-    Store::$systems[$systemName]->tearDown();
+    Store::$environments[$envName]->tearDown();
 }
 
 /**

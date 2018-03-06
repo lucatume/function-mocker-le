@@ -11,7 +11,7 @@ use function tad\FunctionMockerLe\undefineAll;
 class UndefineTest extends TestCase {
 
   protected function setUp() {
-    Store::$systems = [];
+    Store::$environments = [];
   }
 
   /**

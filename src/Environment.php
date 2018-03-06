@@ -3,23 +3,23 @@
 namespace tad\FunctionMockerLe;
 
 /**
- * Interface System
+ * Interface Environment
  *
- * The interface representing a system to be setup.
+ * The interface representing a environment to be setup.
  *
  * @package tad\FunctionMockerLe
  */
-interface System {
+interface Environment {
 
   /**
-   * Returns the system slug.
+   * Returns the environment slug.
    *
    * @return string
    */
   public function name();
 
   /**
-   * Returns a list of the functions defined by the System.
+   * Returns a list of the functions defined by the Environment.
    *
    * @return array
    */
@@ -28,16 +28,16 @@ interface System {
   /**
    * Defines, using function-mocker-le API, the functions to define.
    *
-   * @param null $arg1 One or more additional parameters passed by the `setupSystem` function
+   * @param null $arg1 One or more additional parameters passed by the `setupEnvironment` function
    *
    * @return void
    *
-   * @see \tad\FunctionMockerLe\setupSystem()
+   * @see \tad\FunctionMockerLe\setupEnvironment()
    */
   public function setUp(...$args);
 
   /**
-   * Tears down the definitions made by the system in the setup phase.
+   * Tears down the definitions made by the environment in the setup phase.
    *
    * @return void
    */

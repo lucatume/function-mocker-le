@@ -7,7 +7,7 @@ use Prophecy\Argument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class GenerateSystemTest extends TestCase {
+class GenerateEnvironmentTest extends TestCase {
 
     private $data = __DIR__ . '/../data/';
 
@@ -20,24 +20,24 @@ class GenerateSystemTest extends TestCase {
         /** @var InputInterface $input */
         $input = $this->prophesize(InputInterface::class);
         $input->getArgument('source')->willReturn($this->data . 'functions-1.php');
-        $input->getArgument('system')->willReturn('SystemOne');
-        $input->getOption('system-path')->willReturn($this->output);
+        $input->getArgument('env')->willReturn( 'EnvironmentOne' );
+        $input->getOption('env-path')->willReturn($this->output);
         $input->getOption('config-file')->willReturn(null);
         /** @var OutputInterface $output */
         $output = $this->prophesize(OutputInterface::class);
         $output->writeln(Argument::type('string'))->willReturn(null);
 
-        $sut = new GenerateSystem();
+        $sut = new GenerateEnvironment();
         $sut->execute($input->reveal(), $output->reveal());
 
-        $this->assertFileExists($this->output . '/SystemOne.php');
-        $this->assertFileExists($this->output . '/SystemOne-functions.php');
+        $this->assertFileExists($this->output . '/EnvironmentOne.php');
+        $this->assertFileExists($this->output . '/EnvironmentOne-functions.php');
 
-        include_once($this->output . '/SystemOne.php');
+        include_once($this->output . '/EnvironmentOne.php');
 
-        $this->assertTrue(class_exists('SystemOne'));
+        $this->assertTrue(class_exists( 'EnvironmentOne' ));
 
-        $one = new \SystemOne();
+        $one = new \EnvironmentOne();
         $one->setUp();
 
         $this->assertTrue(function_exists('aFunction'));
@@ -51,32 +51,32 @@ class GenerateSystemTest extends TestCase {
     }
 
     /**
-     * It should generate expected file with no config and namespaced system
+     * It should generate expected file with no config and namespaced environment
      *
      * @test
      */
-    public function should_generate_expected_file_with_no_config_and_namespaced_system() {
+    public function should_generate_expected_file_with_no_config_and_namespaced_environment() {
         /** @var InputInterface $input */
         $input = $this->prophesize(InputInterface::class);
         $input->getArgument('source')->willReturn($this->data . 'functions-2.php');
-        $input->getArgument('system')->willReturn('foo\\bar\\SystemTwo');
-        $input->getOption('system-path')->willReturn($this->output);
+        $input->getArgument('env')->willReturn('foo\\bar\\EnvironmentTwo');
+        $input->getOption('env-path')->willReturn($this->output);
         $input->getOption('config-file')->willReturn(null);
         /** @var OutputInterface $output */
         $output = $this->prophesize(OutputInterface::class);
         $output->writeln(Argument::type('string'))->willReturn(null);
 
-        $sut = new GenerateSystem();
+        $sut = new GenerateEnvironment();
         $sut->execute($input->reveal(), $output->reveal());
 
-        $this->assertFileExists($this->output . '/SystemTwo.php');
-        $this->assertFileExists($this->output . '/SystemTwo-functions.php');
+        $this->assertFileExists($this->output . '/EnvironmentTwo.php');
+        $this->assertFileExists($this->output . '/EnvironmentTwo-functions.php');
 
-        include_once($this->output . '/SystemTwo.php');
+        include_once($this->output . '/EnvironmentTwo.php');
 
-        $this->assertTrue(class_exists('\\foo\\bar\\SystemTwo'));
+        $this->assertTrue(class_exists('\\foo\\bar\\EnvironmentTwo'));
 
-        $one = new \foo\bar\SystemTwo();
+        $one = new \foo\bar\EnvironmentTwo();
         $one->setUp();
 
         $this->assertTrue(function_exists('bFunction'));
@@ -90,31 +90,31 @@ class GenerateSystemTest extends TestCase {
     }
 
     /**
-     * It should generate system from folder
+     * It should generate environment from folder
      *
      * @test
      */
-    public function should_generate_system_from_folder() {
+    public function should_generate_environment_from_folder() {
         /** @var InputInterface $input */
         $input = $this->prophesize(InputInterface::class);
         $input->getArgument('source')->willReturn($this->data . 'functions-folder');
-        $input->getArgument('system')->willReturn('SystemThree');
-        $input->getOption('system-path')->willReturn($this->output);
+        $input->getArgument('env')->willReturn('EnvironmentThree');
+        $input->getOption('env-path')->willReturn($this->output);
         $input->getOption('config-file')->willReturn(null);
         /** @var OutputInterface $output */
         $output = $this->prophesize(OutputInterface::class);
         $output->writeln(Argument::type('string'))->willReturn(null);
-        $sut = new GenerateSystem();
+        $sut = new GenerateEnvironment();
         $sut->execute($input->reveal(), $output->reveal());
 
-        $this->assertFileExists($this->output . '/SystemThree.php');
-        $this->assertFileExists($this->output . '/SystemThree-functions.php');
+        $this->assertFileExists($this->output . '/EnvironmentThree.php');
+        $this->assertFileExists($this->output . '/EnvironmentThree-functions.php');
 
-        include_once($this->output . '/SystemThree.php');
+        include_once($this->output . '/EnvironmentThree.php');
 
-        $this->assertTrue(class_exists('\\SystemThree'));
+        $this->assertTrue(class_exists('\\EnvironmentThree'));
 
-        $one = new \SystemThree();
+        $one = new \EnvironmentThree();
         $one->setUp();
 
         foreach ([

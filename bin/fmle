@@ -11,6 +11,6 @@ use Symfony\Component\Console\Application;
 
 $application = new Application();
 
-$application->add(new tad\FunctionMockerLe\Command\GenerateSystem());
+$application->add(new tad\FunctionMockerLe\Command\GenerateEnvironment());
 
 $application->run();
